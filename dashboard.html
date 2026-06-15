@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Dashboard — Obsidian</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="css/dashboard.css"/></head>
+<body>
+<div class="loading-screen show" id="loadingScreen">
+  <div class="loading-inner">
+    <div class="loading-logo">◆</div>
+    <div class="loading-spinner"></div>
+    <div class="loading-msg" id="loadingMsg">Loading workspace…</div>
+    <div class="loading-sub" id="loadingSub"></div>
+  </div>
+</div>
+<aside class="sidebar" id="sidebar">
+  <a href="index.html" class="sidebar-logo"><div class="sidebar-logo-icon">◆</div>Obsidian</a>
+  <div class="sidebar-section-label">Workspace</div>
+  <nav class="sidebar-nav">
+    <a class="nav-item active" onclick="showPanel('dashboard')"><span class="nav-icon">🏠</span> Dashboard</a>
+    <a class="nav-item" onclick="showPanel('chat')"><span class="nav-icon">💬</span> AI Chat <span class="nav-badge">3</span></a>
+    <a class="nav-item" href="chatbot.html"><span class="nav-icon">🤖</span> Local AI Chat <span class="nav-badge" style="background:var(--accent-sage);color:#3a6b4a;">NEW</span></a>
+    <a class="nav-item" onclick="showPanel('documents')"><span class="nav-icon">📄</span> My Documents</a>
+    <a class="nav-item" onclick="showPanel('history')"><span class="nav-icon">🕐</span> Chat History</a>
+    <a class="nav-item" onclick="showPanel('summaries')"><span class="nav-icon">📝</span> Saved Summaries</a>
+  </nav>
+  <div class="sidebar-section-label" style="margin-top:16px;">Account</div>
+  <nav class="sidebar-nav">
+    <a class="nav-item" onclick="showPanel('profile')"><span class="nav-icon">👤</span> Profile</a>
+    <a class="nav-item" onclick="showPanel('settings')"><span class="nav-icon">⚙️</span> Settings</a>
+    <a class="nav-item" onclick="handleLogout()"><span class="nav-icon">🚪</span> Logout</a>
+    <a class="nav-item" href="diagnostics.html"><span class="nav-icon">🔧</span> Diagnostics</a>
+  </nav>
+  <div class="sidebar-user">
+    <div class="user-card">
+      <div class="user-avatar" id="sidebarAvatar">E</div>
+      <div><div class="user-name" id="sidebarName">Eshana Singh</div><div class="user-email" id="sidebarEmail">eshana@example.com</div></div>
+      <span class="user-menu-icon">⋯</span>
+    </div>
+  </div>
+</aside>
+
+<main class="main-content">
+  <div class="topbar">
+    <div class="topbar-left">
+      <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+      <span class="topbar-title" id="topbarTitle">Dashboard</span>
+    </div>
+    <div class="topbar-right">
+      <button class="topbar-btn">🔔<span class="notif-dot"></span></button>
+      <button class="topbar-btn" onclick="focusChatInput()">🔍</button>
+      <div class="user-avatar" id="topbarAvatar" style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#06b6d4);display:flex;align-items:center;justify-content:center;font-size:.9rem;font-weight:700;cursor:pointer;">E</div>
+    </div>
+  </div>
+
+  <!-- Dashboard Panel -->
+  <div class="dash-content" id="panel-dashboard">
+    <div class="welcome-banner">
+      <div class="welcome-text"><h2>Welcome back, <span id="welcomeName">Eshana</span> 👋</h2><p>You have 3 unread AI responses and 2 documents pending review.</p></div>
+      <button class="welcome-btn" onclick="showPanel('chat')">💬 Start AI Chat</button>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-card-header"><div class="stat-card-icon purple">📄</div><span class="stat-card-change up">+2</span></div><div class="stat-card-value">8</div><div class="stat-card-label">Documents Uploaded</div></div>
+      <div class="stat-card"><div class="stat-card-header"><div class="stat-card-icon cyan">💬</div><span class="stat-card-change up">+12</span></div><div class="stat-card-value">47</div><div class="stat-card-label">AI Queries</div></div>
+      <div class="stat-card"><div class="stat-card-header"><div class="stat-card-icon green">📝</div><span class="stat-card-change up">+3</span></div><div class="stat-card-value">15</div><div class="stat-card-label">Saved Summaries</div></div>
+      <div class="stat-card"><div class="stat-card-header"><div class="stat-card-icon pink">⏱️</div><span class="stat-card-change down">-1h</span></div><div class="stat-card-value">4h</div><div class="stat-card-label">Time Saved Today</div></div>
+    </div>
+    <div class="dash-grid">
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">🤖 AI Research Chat</span><a class="panel-action" onclick="showPanel('chat')">Open Full →</a></div>
+        <div class="chat-area" id="dashChatArea">
+          <div class="msg ai"><div class="msg-avatar">🤖</div><div class="msg-bubble">Hello! I'm your AI research assistant. Upload documents and ask me anything about them.</div></div>
+          <div class="msg user"><div class="msg-avatar">E</div><div class="msg-bubble">What are the main contributions of the transformer paper?</div></div>
+          <div class="msg ai"><div class="msg-avatar">🤖</div><div class="msg-bubble">Based on your uploaded document, the key contributions are: (1) The Transformer architecture relying entirely on attention mechanisms, (2) Multi-head self-attention allowing parallel processing...</div></div>
+        </div>
+        <div class="chat-input-wrap"><textarea class="chat-input" id="dashChatInput" placeholder="Ask about your research papers..." rows="1"></textarea><button class="chat-send" onclick="sendDashMessage()">➤</button></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:20px;">
+        <div class="panel">
+          <div class="panel-header"><span class="panel-title">📂 Recent Documents</span><a class="panel-action" onclick="showPanel('documents')">View All →</a></div>
+          <div class="doc-list">
+            <div class="doc-item"><div class="doc-icon arxiv">🔬</div><div><div class="doc-name">Attention Is All You Need</div><div class="doc-meta">Vaswani et al. • 2 days ago</div></div><div class="doc-actions"><button class="doc-btn">💬</button><button class="doc-btn">🗑️</button></div></div>
+            <div class="doc-item"><div class="doc-icon pdf">📕</div><div><div class="doc-name">BERT: Pre-training of Deep...</div><div class="doc-meta">Devlin et al. • 5 days ago</div></div><div class="doc-actions"><button class="doc-btn">💬</button><button class="doc-btn">🗑️</button></div></div>
+            <div class="doc-item"><div class="doc-icon doc">📘</div><div><div class="doc-name">RAG for Knowledge-Intensive NLP</div><div class="doc-meta">Lewis et al. • 1 week ago</div></div><div class="doc-actions"><button class="doc-btn">💬</button><button class="doc-btn">🗑️</button></div></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><span class="panel-title">🕐 Recent Sessions</span><a class="panel-action" onclick="showPanel('history')">View All →</a></div>
+          <div class="history-list">
+            <div class="history-item"><span class="history-dot"></span><span class="history-title">Transformer attention mechanisms explained</span><span class="history-time">2h ago</span></div>
+            <div class="history-item"><span class="history-dot"></span><span class="history-title">BERT vs GPT: Key differences</span><span class="history-time">Yesterday</span></div>
+            <div class="history-item"><span class="history-dot"></span><span class="history-title">RAG pipeline architecture overview</span><span class="history-time">3 days ago</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Documents Panel -->
+  <div class="dash-content" id="panel-documents" style="display:none;">
+    <h2 style="font-size:1.4rem;font-weight:800;margin-bottom:24px;">📄 My Documents</h2>
+    <div class="panel" style="margin-bottom:20px;">
+      <div class="panel-header"><span class="panel-title">Upload New Document</span></div>
+      <div class="upload-zone" id="uploadZone" ondragover="handleDragOver(event)" ondrop="handleDrop(event)" onclick="triggerFileInput()">
+        <div class="upload-icon">☁️</div>
+        <p class="upload-text">Drag &amp; drop your PDF here, or <strong>click to browse</strong></p>
+        <p style="font-size:.75rem;color:#475569;margin-top:6px;">Supports PDF, DOCX, TXT • Max 10MB</p>
+      </div>
+      <input type="file" id="fileInput" style="display:none;" accept=".pdf,.docx,.txt" onchange="handleFileUpload(event)"/>
+    </div>
+    <div class="panel"><div class="panel-header"><span class="panel-title">All Documents</span></div><div class="doc-list" id="allDocsList"></div></div>
+  </div>
+
+  <!-- Chat Panel -->
+  <div id="panel-chat" style="display:none;height:calc(100vh - 70px);flex-direction:column;">
+    <div class="panel" style="flex:1;display:flex;flex-direction:column;border-radius:0;border:none;">
+      <div class="panel-header" style="padding:16px 24px;"><span class="panel-title">🤖 AI Research Chat</span><span style="font-size:.8rem;color:#22c55e;display:flex;align-items:center;gap:6px;"><span style="width:7px;height:7px;background:#22c55e;border-radius:50%;display:inline-block;box-shadow:0 0 6px #22c55e;"></span>AI Ready</span></div>
+      <div class="chat-area" id="fullChatArea" style="flex:1;height:auto;max-height:none;"><div class="msg ai"><div class="msg-avatar">🤖</div><div class="msg-bubble">Hello! Upload your research papers and I'll help you understand them.</div></div></div>
+      <div class="chat-input-wrap" style="padding:16px 20px;"><textarea class="chat-input" id="fullChatInput" placeholder="Ask me anything about your research..." rows="2" style="resize:none;" onkeydown="handleChatKeydown(event)"></textarea><button class="chat-send" onclick="sendFullMessage()">➤</button></div>
+    </div>
+  </div>
+
+  <!-- Profile Panel -->
+  <div class="dash-content" id="panel-profile" style="display:none;">
+    <h2 style="font-size:1.4rem;font-weight:800;margin-bottom:24px;">👤 My Profile</h2>
+    <div class="panel" style="max-width:600px;">
+      <div class="panel-header"><span class="panel-title">Account Information</span></div>
+      <div style="padding:24px;">
+        <div style="display:flex;align-items:center;gap:20px;margin-bottom:28px;">
+          <div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#06b6d4);display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:800;" id="profileAvatarLarge">E</div>
+          <div><div style="font-size:1.1rem;font-weight:700;" id="profileFullName">Eshana Singh</div><div style="font-size:.85rem;color:#94a3b8;" id="profileEmailDisplay">eshana@example.com</div></div>
+        </div>
+        <form style="display:flex;flex-direction:column;gap:16px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+            <div><label style="font-size:.8rem;font-weight:600;color:#94a3b8;text-transform:uppercase;display:block;margin-bottom:7px;">First Name</label><input type="text" id="profileFirstName" value="Eshana" style="width:100%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:11px 14px;color:#f1f5f9;font-family:inherit;font-size:.92rem;outline:none;"/></div>
+            <div><label style="font-size:.8rem;font-weight:600;color:#94a3b8;text-transform:uppercase;display:block;margin-bottom:7px;">Last Name</label><input type="text" id="profileLastName" value="Singh" style="width:100%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:11px 14px;color:#f1f5f9;font-family:inherit;font-size:.92rem;outline:none;"/></div>
+          </div>
+          <div><label style="font-size:.8rem;font-weight:600;color:#94a3b8;text-transform:uppercase;display:block;margin-bottom:7px;">Email</label><input type="email" id="profileEmail" value="eshana@example.com" style="width:100%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:11px 14px;color:#f1f5f9;font-family:inherit;font-size:.92rem;outline:none;"/></div>
+          <button type="button" onclick="updateProfile(event)" style="background:linear-gradient(135deg,#7c3aed,#06b6d4);border:none;border-radius:10px;padding:12px 24px;color:#fff;font-family:inherit;font-size:.92rem;font-weight:700;cursor:pointer;align-self:flex-start;">Save Changes</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- History Panel -->
+  <div class="dash-content" id="panel-history" style="display:none;">
+    <h2 style="font-size:1.4rem;font-weight:800;margin-bottom:24px;">🕐 Chat History</h2>
+    <div class="panel"><div class="panel-header"><span class="panel-title">All Conversations</span></div><div class="history-list" id="fullHistoryList" style="padding:16px;"></div></div>
+  </div>
+
+  <div class="dash-content" id="panel-summaries" style="display:none;"><h2 style="font-size:1.4rem;font-weight:800;margin-bottom:24px;">📝 Saved Summaries</h2><div class="panel"><div class="panel-header"><span class="panel-title">Your Research Summaries</span></div><div style="padding:24px;color:#94a3b8;font-size:.9rem;">No summaries saved yet.</div></div></div>
+
+  <div class="dash-content" id="panel-settings" style="display:none;"><h2 style="font-size:1.4rem;font-weight:800;margin-bottom:24px;">⚙️ Settings</h2><div class="panel" style="max-width:500px;"><div class="panel-header"><span class="panel-title">Preferences</span></div><div style="padding:24px;"><button onclick="handleLogout()" style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:10px;padding:10px 20px;color:#fca5a5;font-family:inherit;font-size:.88rem;font-weight:600;cursor:pointer;">🚪 Log Out</button></div></div></div>
+</main>
+
+<div class="toast" id="toast"><span class="toast-icon" id="toastIcon">✅</span><span id="toastMsg">Action completed</span></div>
+<script src="config.js"></script>
+<script src="js/startup.js"></script>
+<script src="js/dashboard.js"></script>
+</body></html>

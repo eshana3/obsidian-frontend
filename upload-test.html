@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Upload Diagnostics — Obsidian</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f0f13;color:#e0ddd8;min-height:100vh;padding:24px}
+h1{font-size:1.1rem;font-weight:700;color:#C4956A;margin-bottom:20px}
+h2{font-size:.82rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#9B8EC4;margin:16px 0 8px}
+.card{background:#1a1a22;border:1px solid #2a2a36;border-radius:12px;padding:16px;margin-bottom:12px}
+.row{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #1f1f2a;font-size:.82rem}
+.row:last-child{border-bottom:none}
+.label{color:#8880a0;width:160px;flex-shrink:0}
+.val{font-family:Consolas,monospace;font-size:.78rem;word-break:break-all;flex:1}
+.ok{color:#7ac77a}.warn{color:#e0b060}.err{color:#e07070}.info{color:#80b8e8}
+.badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:.7rem;font-weight:700}
+.badge.ok{background:rgba(122,199,122,.15);color:#7ac77a}
+.badge.warn{background:rgba(224,176,96,.12);color:#e0b060}
+.badge.err{background:rgba(224,112,112,.12);color:#e07070}
+button{padding:8px 18px;background:linear-gradient(135deg,#C4956A,#9B8EC4);border:none;border-radius:9px;color:#fff;font-size:.82rem;font-weight:700;cursor:pointer;margin:4px;transition:opacity .2s}
+button:hover{opacity:.85}button:disabled{opacity:.4;cursor:not-allowed}
+input[type=file]{display:none}
+#fileLabel{display:inline-block;padding:8px 18px;background:#2a2a36;border:1px dashed #3a3a4a;border-radius:9px;font-size:.82rem;color:#8880a0;cursor:pointer;transition:all .2s;margin:4px}
+#fileLabel:hover{border-color:#9B8EC4;color:#e0ddd8}
+#fileLabel.has-file{border-color:#7ac77a;color:#7ac77a;background:rgba(122,199,122,.08)}
+pre{background:#111118;border:1px solid #2a2a36;border-radius:8px;padding:12px;font-size:.74rem;font-family:Consolas,monospace;overflow-x:auto;margin:4px 0;white-space:pre-wrap;max-height:300px;overflow-y:auto}
+.progress-wrap{height:6px;background:#2a2a36;border-radius:3px;margin:6px 0;overflow:hidden}
+.progress-bar{height:100%;background:linear-gradient(90deg,#C4956A,#9B8EC4);border-radius:3px;transition:width .4s;width:0}
+.note{font-size:.74rem;color:#6a6a80;line-height:1.5;padding:8px 12px;background:#13131a;border-left:3px solid #9B8EC4;border-radius:0 8px 8px 0;margin:4px 0}
+.section-title{font-size:.95rem;font-weight:700;color:#C4956A;border-bottom:1px solid #2a2a36;padding-bottom:8px;margin-bottom:12px}
+</style>
+</head>
+<body>
+<h1>◆ Obsidian Upload Diagnostics</h1>
+
+<!-- ── Environment ─────────────────────────────────────── -->
+<div class="card">
+<div class="section-title">① Environment</div>
+<div class="row"><span class="label">Page origin</span><span class="val" id="envOrigin">—</span></div>
+<div class="row"><span class="label">Protocol</span><span class="val" id="envProto">—</span></div>
+<div class="row"><span class="label">API target</span><span class="val" id="envApi">—</span></div>
+<div class="row"><span class="label">Origin type</span><span class="val" id="envType">—</span></div>
+<div id="fileOriginNote"></div>
+</div>
+
+<!-- ── Server connectivity ──────────────────────────────── -->
+<div class="card">
+<div class="section-title">② Server Connectivity</div>
+<div class="row"><span class="label">Server running?</span><span class="val" id="srvStatus">not tested</span></div>
+<div class="row"><span class="label">Ollama online?</span><span class="val" id="srvOllama">—</span></div>
+<div class="row"><span class="label">Chat model</span><span class="val" id="srvModel">—</span></div>
+<div class="row"><span class="label">Raw response</span><span class="val"><pre id="srvRaw">—</pre></span></div>
+<button onclick="testServer()">Test Server</button>
+</div>
+
+<!-- ── CORS preflight ───────────────────────────────────── -->
+<div class="card">
+<div class="section-title">③ CORS Preflight</div>
+<div class="note">
+  A simple multipart/form-data POST (no custom headers) skips the CORS preflight entirely.<br>
+  Only JSON requests with custom headers (x-user-id, etc.) need a preflight. Testing both.
+</div>
+<div class="row"><span class="label">Simple POST (no headers)</span><span class="val" id="corsSimple">not tested</span></div>
+<div class="row"><span class="label">Custom headers test</span><span class="val" id="corsCustom">not tested</span></div>
+<button onclick="testCORS()">Test CORS</button>
+</div>
+
+<!-- ── Upload test ─────────────────────────────────────── -->
+<div class="card">
+<div class="section-title">④ Upload Test</div>
+<input type="file" id="testFile" accept=".pdf" onchange="fileChosen(this)"/>
+<label for="testFile" id="fileLabel">📎 Choose PDF</label>
+<div class="row" id="fileRow" style="display:none">
+  <span class="label">Selected file</span>
+  <span class="val" id="fileInfo">—</span>
+</div>
+<div class="progress-wrap" id="progressWrap" style="display:none">
+  <div class="progress-bar" id="progressBar"></div>
+</div>
+<div class="row"><span class="label">Upload result</span><span class="val" id="upResult">—</span></div>
+<div class="row"><span class="label">Raw response</span><span class="val"><pre id="upRaw">—</pre></span></div>
+<div class="row" id="pollRow" style="display:none">
+  <span class="label">Processing status</span><span class="val" id="pollStatus">—</span>
+</div>
+<br>
+<button id="upBtn" onclick="testUpload()" disabled>Upload PDF</button>
+<button onclick="testUploadWithHeaders()">Test WITH custom headers (CORS preflight)</button>
+</div>
+
+<!-- ── Errors console ──────────────────────────────────── -->
+<div class="card">
+<div class="section-title">⑤ Console Log</div>
+<pre id="consoleLog" style="height:220px"></pre>
+<button onclick="document.getElementById('consoleLog').textContent=''">Clear</button>
+</div>
+
+<script>
+const API = 'http://localhost:3001/api';
+let chosenFile = null;
+let consoleEl  = null;
+
+// ── Logging ─────────────────────────────────────────────────
+function log(level, msg) {
+  if (!consoleEl) consoleEl = document.getElementById('consoleLog');
+  const ts = new Date().toLocaleTimeString();
+  const prefix = level === 'error' ? '[ERR] ' : level === 'warn' ? '[WARN]' : '[LOG] ';
+  consoleEl.textContent += `${ts} ${prefix} ${msg}\n`;
+  consoleEl.scrollTop = consoleEl.scrollHeight;
+}
+
+// Override console methods to mirror to the on-page log
+const _log   = console.log.bind(console);
+const _error = console.error.bind(console);
+const _warn  = console.warn.bind(console);
+console.log   = function(){ log('log',   Array.from(arguments).join(' ')); _log  (...arguments); };
+console.error = function(){ log('error', Array.from(arguments).join(' ')); _error(...arguments); };
+console.warn  = function(){ log('warn',  Array.from(arguments).join(' ')); _warn (...arguments); };
+
+// ── Environment ─────────────────────────────────────────────
+(function detectEnv() {
+  const origin = window.location.origin;
+  const proto  = window.location.protocol;
+  const isFile = proto === 'file:';
+
+  document.getElementById('envOrigin').textContent = origin;
+  document.getElementById('envProto').textContent  = proto;
+  document.getElementById('envApi').textContent    = API;
+
+  if (isFile) {
+    document.getElementById('envType').innerHTML =
+      '<span class="badge warn">file:// — CORS preflights may fail</span>';
+    document.getElementById('fileOriginNote').innerHTML =
+      '<div class="note" style="margin-top:8px">⚠ You opened this page directly from disk. ' +
+      'Custom-header requests (chat API) need a properly configured CORS origin echo. ' +
+      'PDF uploads use FormData-only (no custom headers) and bypass this issue entirely. ' +
+      'For the chat API, the server echoes your <code>null</code> origin back so it works too.</div>';
+    console.log('Page origin: file:// (null). Custom-header requests will use echoed-origin CORS.');
+  } else {
+    document.getElementById('envType').innerHTML =
+      '<span class="badge ok">http — standard CORS</span>';
+    console.log('Page origin:', origin);
+  }
+})();
+
+// ── Helpers ─────────────────────────────────────────────────
+function setBadge(elId, ok, text) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.innerHTML = `<span class="badge ${ok ? 'ok' : 'err'}">${text}</span>`;
+}
+
+function setRaw(elId, data) {
+  const el = document.getElementById(elId);
+  if (el) el.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+}
+
+// ── ① Server test ────────────────────────────────────────────
+async function testServer() {
+  console.log('Testing server connectivity → GET ' + API + '/chat/health');
+  document.getElementById('srvStatus').textContent = 'testing…';
+
+  try {
+    const res  = await fetch(API + '/chat/health');
+    const data = await res.json();
+    console.log('Health response:', JSON.stringify(data));
+
+    setBadge('srvStatus', res.ok, res.ok ? `Online (HTTP ${res.status})` : `Error (HTTP ${res.status})`);
+    document.getElementById('srvOllama').innerHTML =
+      `<span class="badge ${data.ollama==='online'?'ok':'err'}">${data.ollama || 'unknown'}</span>`;
+    document.getElementById('srvModel').textContent = data.model || '—';
+    setRaw('srvRaw', data);
+  } catch (err) {
+    console.error('Server test failed:', err.message);
+    setBadge('srvStatus', false, 'FAILED — ' + diagError(err));
+    setRaw('srvRaw', 'Error: ' + err.message + '\n\nMake sure the server is running:\n  node chatbot-server/server.js');
+  }
+}
+
+// ── ② CORS test ──────────────────────────────────────────────
+async function testCORS() {
+  // Test 1: simple request — no custom headers
+  console.log('CORS test 1: simple GET (no custom headers)');
+  try {
+    const r1 = await fetch(API + '/chat/health');
+    setBadge('corsSimple', r1.ok, `Passed (HTTP ${r1.status})`);
+    console.log('Simple CORS: passed');
+  } catch (e) {
+    setBadge('corsSimple', false, 'FAILED: ' + e.message);
+    console.error('Simple CORS failed:', e.message);
+  }
+
+  // Test 2: custom headers — triggers preflight
+  console.log('CORS test 2: custom headers (triggers preflight)');
+  try {
+    const r2 = await fetch(API + '/chat/health', {
+      headers: { 'x-user-id': 'diag-test', 'x-user-name': 'DiagTest' }
+    });
+    setBadge('corsCustom', r2.ok, `Passed (HTTP ${r2.status})`);
+    console.log('Custom-header CORS: passed');
+  } catch (e) {
+    setBadge('corsCustom', false, 'FAILED: ' + e.message);
+    console.error('Custom-header CORS failed:', e.message,
+      '\n→ Server may need to echo back Origin: null for file:// pages');
+  }
+}
+
+// ── ③ File picker ────────────────────────────────────────────
+function fileChosen(input) {
+  chosenFile = input.files[0] || null;
+  const lbl  = document.getElementById('fileLabel');
+  const row  = document.getElementById('fileRow');
+  const info = document.getElementById('fileInfo');
+  const btn  = document.getElementById('upBtn');
+
+  if (chosenFile) {
+    lbl.textContent = '✅ ' + chosenFile.name;
+    lbl.className   = 'has-file';
+    row.style.display = '';
+    info.textContent  = `${chosenFile.name} — ${fmtSize(chosenFile.size)} — ${chosenFile.type || 'no MIME'}`;
+    btn.disabled = false;
+    console.log('File selected:', chosenFile.name, fmtSize(chosenFile.size), chosenFile.type);
+  } else {
+    lbl.textContent = '📎 Choose PDF';
+    lbl.className   = '';
+    row.style.display = 'none';
+    btn.disabled = true;
+  }
+}
+
+// ── ④a Upload WITHOUT custom headers (the correct approach) ──
+function testUpload() {
+  if (!chosenFile) return;
+  _doUpload(chosenFile, false);
+}
+
+// ── ④b Upload WITH custom headers (shows the CORS preflight issue) ──
+function testUploadWithHeaders() {
+  if (!chosenFile) {
+    alert('Choose a PDF first (④ Upload Test section).');
+    return;
+  }
+  _doUpload(chosenFile, true);
+}
+
+function _doUpload(file, useHeaders) {
+  const upResult  = document.getElementById('upResult');
+  const upRaw     = document.getElementById('upRaw');
+  const pollRow   = document.getElementById('pollRow');
+  const progWrap  = document.getElementById('progressWrap');
+  const progBar   = document.getElementById('progressBar');
+
+  upResult.textContent  = 'uploading…';
+  upRaw.textContent     = '';
+  pollRow.style.display = 'none';
+  progWrap.style.display = '';
+  progBar.style.width   = '0%';
+
+  const mode = useHeaders ? 'WITH custom headers (preflight)' : 'WITHOUT custom headers (simple)';
+  console.log('Starting upload', mode, '→ POST', API + '/documents/upload');
+  console.log('File:', file.name, fmtSize(file.size), file.type);
+
+  const form = new FormData();
+  form.append('pdf', file);
+
+  if (!useHeaders) {
+    // Correct approach — userId in body, no custom headers
+    form.append('userId',   'diag-user-' + Date.now());
+    form.append('userName', 'DiagTest');
+    console.log('userId passed in FormData body (simple request, no preflight)');
+  } else {
+    console.log('userId passed as XHR header (non-simple request, preflight required)');
+  }
+
+  const xhr = new XMLHttpRequest();
+
+  xhr.upload.addEventListener('progress', (e) => {
+    if (e.lengthComputable) {
+      const pct = Math.round(e.loaded / e.total * 75);
+      progBar.style.width = pct + '%';
+      console.log('Upload progress:', pct + '%');
+    }
+  });
+
+  xhr.addEventListener('load', () => {
+    progBar.style.width = '85%';
+    console.log('XHR load event — HTTP', xhr.status);
+    console.log('Response body:', xhr.responseText.slice(0, 500));
+
+    let data = {};
+    try { data = JSON.parse(xhr.responseText); } catch (_) {
+      upResult.innerHTML = '<span class="badge err">Invalid JSON response</span>';
+      upRaw.textContent  = xhr.responseText;
+      return;
+    }
+
+    setRaw('upRaw', data);
+
+    if (xhr.status === 201 && data.success) {
+      progBar.style.width = '90%';
+      upResult.innerHTML = `<span class="badge ok">Uploaded — id: ${data.document.id}</span>`;
+      console.log('Upload OK, doc id:', data.document.id, '— polling status…');
+      pollRow.style.display = '';
+      pollStatus(data.document.id, progBar, pollRow);
+    } else {
+      upResult.innerHTML = `<span class="badge err">HTTP ${xhr.status}: ${data.error || 'unknown error'}</span>`;
+      progBar.style.width = '100%';
+      progBar.style.background = '#e07070';
+      console.error('Upload failed:', xhr.status, data.error);
+    }
+  });
+
+  xhr.addEventListener('error', () => {
+    progWrap.style.display = 'none';
+    const why = diagXhrError();
+    upResult.innerHTML = `<span class="badge err">Network error — ${why}</span>`;
+    upRaw.textContent  = 'XHR error event fired.\n\nLikely causes:\n' +
+      '1. Server not running (node chatbot-server/server.js)\n' +
+      '2. CORS preflight rejected (only if using custom headers from file:// page)\n\n' +
+      'Open browser DevTools → Network tab for the exact error.';
+    console.error('XHR error event. Why:', why);
+  });
+
+  xhr.addEventListener('timeout', () => {
+    progWrap.style.display = 'none';
+    upResult.innerHTML = '<span class="badge err">Timeout (2 min)</span>';
+    console.error('Upload timed out.');
+  });
+
+  xhr.open('POST', API + '/documents/upload');
+  if (useHeaders) {
+    xhr.setRequestHeader('x-user-id',   'diag-user');
+    xhr.setRequestHeader('x-user-name', 'DiagTest');
+  }
+  xhr.timeout = 120000;
+  xhr.send(form);
+  console.log('XHR sent (mode:', mode + ')');
+}
+
+// ── Poll processing status ───────────────────────────────────
+async function pollStatus(docId, bar, row) {
+  let n = 0;
+  const el = document.getElementById('pollStatus');
+  const t  = setInterval(async () => {
+    n++;
+    if (n > 60) { clearInterval(t); el.textContent = 'Timed out'; return; }
+    try {
+      const r    = await fetch(API + '/documents/' + docId + '/status');
+      const data = await r.json();
+      const s    = data.status;
+      console.log('Poll', n, '— status:', s, 'chunks:', data.chunkCount);
+      el.textContent = `${s}${data.chunkCount ? ' (' + data.chunkCount + ' chunks)' : ''}`;
+
+      if (s === 'ready') {
+        clearInterval(t);
+        bar.style.width = '100%';
+        el.innerHTML = `<span class="badge ok">Ready — ${data.chunkCount || 0} chunks, ${data.pages || 0} pages</span>`;
+        console.log('PDF processing complete:', docId);
+        // Clean up the test document
+        fetch(API + '/documents/' + docId, { method: 'DELETE' }).catch(() => {});
+      } else if (s === 'error') {
+        clearInterval(t);
+        bar.style.background = '#e07070';
+        el.innerHTML = '<span class="badge err">Processing failed</span>';
+        console.error('PDF processing failed for', docId);
+      }
+    } catch (err) {
+      console.warn('Poll error:', err.message);
+    }
+  }, 2000);
+}
+
+// ── Utilities ────────────────────────────────────────────────
+function fmtSize(b) {
+  if (b < 1024)    return b + ' B';
+  if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+  return (b/1048576).toFixed(1) + ' MB';
+}
+
+function diagError(err) {
+  if (err.message.includes('fetch') || err.message.includes('Failed')) {
+    return 'server not reachable (connection refused or CORS)';
+  }
+  return err.message;
+}
+
+function diagXhrError() {
+  // Can't distinguish CORS from connection-refused from inside JS
+  // Both fire the 'error' event with status 0
+  return 'server not reachable or CORS blocked (check DevTools Network tab)';
+}
+
+// Auto-run environment check
+window.addEventListener('load', () => {
+  console.log('Diagnostics page loaded.');
+  console.log('API endpoint:', API);
+  console.log('Click "Test Server" to begin.');
+});
+</script>
+</body>
+</html>

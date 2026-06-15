@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Obsidian — Intelligent Research Assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+<div class="bg-shapes" aria-hidden="true">
+  <span></span><span></span><span></span></div>
+<nav class="navbar" id="navbar">
+  <div class="container nav-inner">
+    <a href="index.html" class="nav-logo"><div class="nav-logo-icon">◆</div>Obsidian</a>
+    <ul class="nav-links">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#workflow">How it Works</a></li>
+      <li><a href="#testimonials">Reviews</a></li>
+      <li><a href="#pricing">Pricing</a></li>
+    </ul>
+    <div class="nav-actions">
+      <a href="login.html" class="btn btn-outline">Log In</a>
+      <a href="register.html" class="btn btn-primary">Get Started →</a>
+    </div>
+    <button class="hamburger" id="hamburger"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+<div class="mobile-menu" id="mobileMenu">
+  <a href="#features" onclick="closeMobile()">Features</a>
+  <a href="#workflow" onclick="closeMobile()">How it Works</a>
+  <a href="#testimonials" onclick="closeMobile()">Reviews</a>
+  <a href="#pricing" onclick="closeMobile()">Pricing</a>
+  <a href="login.html">Log In</a>
+  <a href="register.html" class="btn btn-primary" style="text-align:center;margin-top:8px;">Get Started →</a>
+</div>
+
+<section class="hero">
+  <div class="container" style="display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center;">
+    <div class="hero-left">
+      <div class="hero-badge"><span>⚡</span> Powered by RAG + LLMs</div>
+      <h1 class="hero-title">Your Personal <span class="gradient-text">AI Research</span> Assistant</h1>
+      <p class="hero-desc">Upload research papers, ask intelligent questions, and get accurate answers grounded in your own documents. Built with RAG technology for hallucination-free responses.</p>
+      <div class="hero-actions">
+        <a href="register.html" class="btn btn-primary btn-lg">Start for Free →</a>
+        <a href="#workflow" class="btn btn-outline btn-lg">See How it Works</a>
+      </div>
+      <div class="hero-stats">
+        <div class="stat-item"><div class="stat-value gradient-text">10K+</div><div class="stat-label">Researchers</div></div>
+        <div class="stat-item"><div class="stat-value gradient-text">500K+</div><div class="stat-label">Papers Analyzed</div></div>
+        <div class="stat-item"><div class="stat-value gradient-text">99.2%</div><div class="stat-label">Accuracy</div></div>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="float-card"><span class="dot"></span> 3 papers indexed</div>
+      <div class="float-card">🔒 JWT Secured</div>
+      <div class="hero-card">
+        <div class="hero-card-header">
+          <div class="hero-card-dots"><span></span><span></span><span></span></div>
+          <div class="hero-card-title">Obsidian — Workspace</div>
+        </div>
+        <div class="chat-bubble user">What does the paper say about transformer attention?</div>
+        <div class="chat-bubble ai">
+          <div class="ai-label">🤖 Obsidian</div>
+          Based on your uploaded paper, the transformer uses multi-head self-attention to compute representations simultaneously, replacing recurrent layers entirely...
+        </div>
+        <div class="chat-bubble user">Summarize the key findings.</div>
+        <div class="chat-bubble ai">
+          <div class="ai-label">🤖 Obsidian</div>
+          <div class="typing-dots"><span></span><span></span><span></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="features">
+  <div class="container">
+    <div style="text-align:center;">
+      <div class="section-tag">✨ Core Features</div>
+      <h2 class="section-title">Everything You Need to <span class="gradient-text">Research Smarter</span></h2>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card fade-in-up"><div class="feature-icon">🔐</div><h3>Secure Authentication</h3><p>JWT-based login with bcrypt password hashing. Your workspace is private and fully encrypted.</p></div>
+      <div class="feature-card fade-in-up"><div class="feature-icon">📄</div><h3>Document Upload & Indexing</h3><p>Upload PDFs and research papers. Our RAG pipeline chunks and indexes them instantly.</p></div>
+      <div class="feature-card fade-in-up"><div class="feature-icon">◆</div><h3>AI-Powered Q&amp;A</h3><p>Ask natural language questions. Get precise answers grounded in your own papers — no hallucinations.</p></div>
+      <div class="feature-card fade-in-up"><div class="feature-icon">💬</div><h3>Persistent Chat History</h3><p>Every conversation is saved to your personal workspace. Pick up where you left off.</p></div>
+      <div class="feature-card fade-in-up"><div class="feature-icon">🗂️</div><h3>Personal Workspace</h3><p>Organize research by project. Private dashboard with uploaded papers and saved summaries.</p></div>
+      <div class="feature-card fade-in-up"><div class="feature-icon">🔗</div><h3>REST API Integration</h3><p>Built on Spring Boot with clean REST APIs. Connect your existing tools and automate workflows.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="workflow">
+  <div class="container" style="display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:start;">
+    <div>
+      <div class="section-tag">⚙️ How it Works</div>
+      <h2 class="section-title">From <span class="gradient-text">Upload</span> to <span class="gradient-text">Insight</span> in Seconds</h2>
+      <p class="section-sub">Our RAG pipeline processes your documents and makes them searchable by an LLM in real time.</p>
+    </div>
+    <div class="workflow-steps">
+      <div class="workflow-step fade-in-up"><div class="step-left"><div class="step-num">1</div><div class="step-line"></div></div><div class="step-content"><h3>Create Your Account</h3><p>Register securely with email and password. Data encrypted in PostgreSQL with bcrypt hashing.</p></div></div>
+      <div class="workflow-step fade-in-up"><div class="step-left"><div class="step-num">2</div><div class="step-line"></div></div><div class="step-content"><h3>Upload Research Papers</h3><p>Drag and drop PDFs. The system chunks text and builds a vector index automatically.</p></div></div>
+      <div class="workflow-step fade-in-up"><div class="step-left"><div class="step-num">3</div><div class="step-line"></div></div><div class="step-content"><h3>Ask Your Questions</h3><p>Type any research question in plain English. RAG retrieves relevant chunks and feeds them to the LLM.</p></div></div>
+      <div class="workflow-step fade-in-up"><div class="step-left"><div class="step-num">4</div></div><div class="step-content"><h3>Get Grounded Answers</h3><p>Receive accurate, cited answers drawn directly from your uploaded papers.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="testimonials">
+  <div class="container">
+    <div style="text-align:center;"><div class="section-tag">💬 Testimonials</div><h2 class="section-title">Loved by <span class="gradient-text">Researchers</span></h2></div>
+    <div class="testimonials-grid" style="margin-top:50px;">
+      <div class="testimonial-card fade-in-up"><div class="stars">★★★★★</div><p class="testimonial-text">"Obsidian changed how I do literature reviews. I upload 20 papers and ask questions — it cites exactly the right sections every time."</p><div class="testimonial-author"><div class="author-avatar">A</div><div><div class="author-name">Arjun Mehra</div><div class="author-role">PhD Candidate, IIT Delhi</div></div></div></div>
+      <div class="testimonial-card fade-in-up"><div class="stars">★★★★★</div><p class="testimonial-text">"The authentication system is solid and the personal workspace keeps all my projects organized. The JWT flow works perfectly."</p><div class="testimonial-author"><div class="author-avatar">P</div><div><div class="author-name">Priya Sharma</div><div class="author-role">ML Engineer, Bangalore</div></div></div></div>
+      <div class="testimonial-card fade-in-up"><div class="stars">★★★★★</div><p class="testimonial-text">"I use this for my thesis research. Getting precise answers with references saves me hours every week. Absolutely stellar."</p><div class="testimonial-author"><div class="author-avatar">R</div><div><div class="author-name">Rahul Kapoor</div><div class="author-role">Research Scholar, BITS Pilani</div></div></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="pricing">
+  <div class="container">
+    <div style="text-align:center;"><div class="section-tag">💎 Pricing</div><h2 class="section-title">Simple, <span class="gradient-text">Transparent</span> Pricing</h2></div>
+    <div class="pricing-grid" style="margin-top:60px;">
+      <div class="pricing-card fade-in-up"><div class="pricing-plan">Free</div><div class="pricing-price"><span class="price-amount">₹0</span><span class="price-period">/month</span></div><p class="pricing-desc">Perfect for students getting started.</p><ul class="pricing-features"><li><span class="check">✓</span> 5 document uploads</li><li><span class="check">✓</span> 50 AI queries/month</li><li><span class="check">✓</span> JWT authentication</li><li><span class="cross">✗</span> Advanced RAG models</li></ul><a href="register.html" class="btn btn-outline" style="width:100%;justify-content:center;">Get Started Free</a></div>
+      <div class="pricing-card popular fade-in-up"><div class="popular-badge">⭐ Most Popular</div><div class="pricing-plan">Pro</div><div class="pricing-price"><span class="price-amount gradient-text">₹499</span><span class="price-period">/month</span></div><p class="pricing-desc">For serious researchers needing full power.</p><ul class="pricing-features"><li><span class="check">✓</span> Unlimited documents</li><li><span class="check">✓</span> Unlimited AI queries</li><li><span class="check">✓</span> Full workspace access</li><li><span class="check">✓</span> Advanced RAG models</li></ul><a href="register.html" class="btn btn-primary" style="width:100%;justify-content:center;">Start Pro →</a></div>
+      <div class="pricing-card fade-in-up"><div class="pricing-plan">Team</div><div class="pricing-price"><span class="price-amount">₹1999</span><span class="price-period">/month</span></div><p class="pricing-desc">For research groups and labs.</p><ul class="pricing-features"><li><span class="check">✓</span> Everything in Pro</li><li><span class="check">✓</span> Up to 20 team members</li><li><span class="check">✓</span> Shared workspaces</li><li><span class="check">✓</span> Priority support</li></ul><a href="register.html" class="btn btn-outline" style="width:100%;justify-content:center;">Contact Us</a></div>
+    </div>
+  </div>
+</section>
+
+<section class="section"><div class="container"><div class="cta-section fade-in-up"><h2>Ready to <span class="gradient-text">Supercharge</span> Your Research?</h2><p>Join thousands of researchers already using AI to work smarter.</p><a href="register.html" class="btn btn-primary btn-lg">Create Free Account →</a></div></div></section>
+
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand"><a href="index.html" class="nav-logo" style="margin-bottom:12px;display:inline-flex;"><div class="nav-logo-icon">◆</div>Obsidian</a><p>Intelligent Research Assistant powered by RAG and LLMs. Built with Spring Boot, PostgreSQL, and JWT.</p></div>
+      <div class="footer-col"><h4>Product</h4><ul><li><a href="#features">Features</a></li><li><a href="#pricing">Pricing</a></li><li><a href="register.html">Sign Up</a></li></ul></div>
+      <div class="footer-col"><h4>Tech Stack</h4><ul><li><a href="#">Spring Boot</a></li><li><a href="#">PostgreSQL</a></li><li><a href="#">JWT / OAuth</a></li></ul></div>
+      <div class="footer-col"><h4>Resources</h4><ul><li><a href="#">API Docs</a></li><li><a href="#">GitHub</a></li><li><a href="#">Contact</a></li></ul></div>
+    </div>
+    <div class="footer-bottom"><p>© 2024 Obsidian. Built for Intelligent Research Assistant — Obsidian.</p><p style="color:#475569;font-size:.8rem;">Spring Boot + Java + Maven + PostgreSQL</p></div>
+  </div>
+</footer>
+<script src="config.js"></script>
+<script src="js/main.js"></script>
+<script>
+  // Redirect authenticated users straight to the dashboard.
+  // Unauthenticated visitors stay on this landing page.
+  (function () {
+    var t = localStorage.getItem('jwt_token');
+    if (t && t !== 'undefined' && t !== 'null' && t.length > 10) {
+      window.location.replace('dashboard.html');
+    }
+  })();
+</script>
+</body></html>

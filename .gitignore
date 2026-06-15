@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+chatbot-server/node_modules/
+
+# Environment secrets — NEVER commit these
+.env
+chatbot-server/.env
+*.env.local
+
+# SQLite databases
+*.db
+*.sqlite
+*.sqlite3
+chatbot-server/db/
+
+# Uploaded files (user data)
+chatbot-server/uploads/
+
+# Build artifacts
+chatbot-server/build/
+chatbot-server/dist/
+
+# better-sqlite3 native binary (rebuilt on each platform during npm install)
+chatbot-server/build/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/settings.json
+.idea/
+*.swp
+
+# Vercel
+.vercel/

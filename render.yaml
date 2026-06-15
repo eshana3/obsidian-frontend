@@ -1,0 +1,45 @@
+services:
+  - type: web
+    name: obsidian-research-assistant
+    env: node
+    plan: free
+    region: oregon          # pick whatever region is closest to your users
+
+    # Render runs these from the repo root
+    buildCommand: npm run build        # installs chatbot-server/node_modules
+    startCommand: npm start            # node chatbot-server/server.js
+
+    # Health check — Render uses this to confirm the app is up
+    healthCheckPath: /api/health
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      # Port is injected automatically by Render — don't hardcode it
+      # The server already reads: parseInt(process.env.PORT, 10) || 3001
+
+      # Spring Boot backend (auth proxy target)
+      # Change this if your Spring Boot URL is different
+      - key: SPRING_BASE_URL
+        value: https://obsidian-backend-n8zo.onrender.com
+
+      # Ollama — not available on Render's free tier.
+      # AI chat features will return errors until you provide an external Ollama URL
+      # or replace llm.js with an API-based model (OpenAI, Groq, Anthropic).
+      - key: OLLAMA_BASE_URL
+        value: http://localhost:11434
+      - key: OLLAMA_MODEL
+        value: llama3.2
+      - key: OLLAMA_EMBED_MODEL
+        value: nomic-embed-text
+
+      # Logging
+      - key: LOG_LEVEL
+        value: info
+
+      # SQLite DB path — stored on Render's ephemeral disk.
+      # Data is lost on each redeploy on the free tier.
+      # Upgrade to a Render Disk or migrate to Turso/PlanetScale for persistence.
+      - key: DB_PATH
+        value: /tmp/obsidian.db

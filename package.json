@@ -1,0 +1,14 @@
+{
+  "name": "obsidian-research-assistant",
+  "version": "1.0.0",
+  "description": "AI Research Assistant — frontend + Node/Express API server",
+  "private": true,
+  "scripts": {
+    "start": "node chatbot-server/server.js",
+    "build": "npm install --prefix chatbot-server --production",
+    "dev": "node serve.js & node chatbot-server/server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

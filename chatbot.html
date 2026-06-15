@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI Research Assistant — Obsidian</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-light.min.css"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js" defer></script>
+  <link rel="stylesheet" href="css/chatbot.css"/>
+</head>
+<body>
+
+<!-- Loading -->
+<div class="cb-loading-screen show" id="cbLoadingScreen"><div class="cb-loading-spinner"></div></div>
+
+<!-- Mobile overlays -->
+<div class="cb-sidebar-overlay" id="cbHistoryOverlay"  onclick="cbCloseHistorySidebar()"></div>
+<div class="cb-sidebar-overlay" id="cbDocsOverlay"     onclick="cbCloseDocsPanel()"></div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!--  Root layout: [history sidebar] [main chat] [docs panel]     -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="cb-root" id="cbRoot">
+
+  <!-- ── HISTORY SIDEBAR ─────────────────────────────────────── -->
+  <aside class="cb-history-sidebar" id="cbHistorySidebar">
+    <div class="cb-hs-header">
+      <a href="index.html" class="cb-brand"><div class="cb-brand-icon">◆</div><span>Obsidian</span></a>
+      <button class="cb-hs-close" onclick="cbCloseHistorySidebar()" title="Close">✕</button>
+    </div>
+
+    <button class="cb-new-chat-btn" onclick="cbNewChat()"><span>✦</span> New Chat</button>
+
+    <div class="cb-search-wrap">
+      <input class="cb-search" id="cbHistorySearch" type="text" placeholder="Search chats…" oninput="cbFilterHistory(this.value)"/>
+      <span class="cb-search-icon">🔍</span>
+    </div>
+
+    <div class="cb-history-scroll" id="cbHistoryList">
+      <div class="cb-hs-empty">No conversations yet.<br>Start a new chat!</div>
+    </div>
+
+    <div class="cb-hs-footer">
+      <div class="cb-hs-user" id="cbHsUser">
+        <div class="cb-user-avatar" id="cbHsAvatar">U</div>
+        <div class="cb-user-info"><div class="cb-user-name" id="cbHsName">User</div><div class="cb-user-email" id="cbHsEmail"></div></div>
+        <button class="cb-settings-trigger" onclick="cbOpenSettings()" title="Settings">⚙</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── MAIN CHAT ────────────────────────────────────────────── -->
+  <main class="cb-main" id="cbMain">
+
+    <!-- Topbar -->
+    <div class="cb-topbar">
+      <div class="cb-topbar-left">
+        <button class="cb-icon-btn" onclick="cbToggleHistorySidebar()" title="Chat history">☰</button>
+        <span class="cb-topbar-title" id="cbChatTitle">AI Research Assistant</span>
+      </div>
+      <div class="cb-topbar-center">
+        <span class="cb-status-dot" id="cbStatusDot"></span>
+        <span class="cb-status-text" id="cbStatusText">Ready</span>
+      </div>
+      <div class="cb-topbar-right">
+        <button class="cb-topbar-btn" onclick="cbExportChat()" title="Export chat">⬇ Export</button>
+        <button class="cb-topbar-btn" onclick="cbToggleDocsPanel()" id="cbDocsToggleBtn" title="Documents">📎 Docs <span class="cb-doc-count-badge" id="cbDocCountBadge" style="display:none">0</span></button>
+        <button class="cb-topbar-btn cb-topbar-btn-danger" onclick="cbClearChat()" title="Clear chat">✕ Clear</button>
+      </div>
+    </div>
+
+    <!-- RAG context indicator -->
+    <div class="cb-rag-bar" id="cbRagBar" style="display:none">
+      <span>📄</span>
+      <span id="cbRagBarText">Using documents for context</span>
+      <button onclick="cbClearDocSelection()" class="cb-rag-clear">✕ Disable</button>
+    </div>
+
+    <!-- Messages -->
+    <div class="cb-messages-wrapper" id="cbMessagesWrapper">
+      <div class="cb-messages" id="cbMessages">
+        <div class="cb-welcome" id="cbWelcome">
+          <div class="cb-welcome-icon">◆</div>
+          <h1 class="cb-welcome-title">Your AI Research Assistant</h1>
+          <p class="cb-welcome-sub">Upload PDFs and ask questions, or chat freely. Powered by a local LLM — your data stays private.</p>
+          <div class="cb-suggestions">
+            <button class="cb-suggestion" onclick="cbUseSuggestion(this)">Summarize this PDF</button>
+            <button class="cb-suggestion" onclick="cbUseSuggestion(this)">Generate study notes</button>
+            <button class="cb-suggestion" onclick="cbUseSuggestion(this)">Generate 10 quiz questions</button>
+            <button class="cb-suggestion" onclick="cbUseSuggestion(this)">What are the key findings?</button>
+            <button class="cb-suggestion" onclick="cbUseSuggestion(this)">Compare the uploaded documents</button>
+            <button class="cb-suggestion" onclick="cbUseSuggestion(this)">Explain the methodology used</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Input -->
+    <div class="cb-input-area">
+      <div class="cb-input-wrap">
+        <div class="cb-input-toolbar">
+          <button class="cb-toolbar-btn" onclick="cbTriggerPdfUpload()" title="Upload PDF">📎 Upload PDF</button>
+          <span class="cb-input-docs-indicator" id="cbInputDocsIndicator" style="display:none">
+            <span id="cbInputDocCount">0</span> doc(s) active
+          </span>
+        </div>
+        <textarea class="cb-input" id="cbInput"
+          placeholder="Ask anything, or upload a PDF and ask questions about it… (Enter to send)"
+          rows="1"
+          onkeydown="cbHandleKeydown(event)"
+          oninput="cbAutoResize(this); cbUpdateCharCount(this.value)"
+        ></textarea>
+        <div class="cb-input-actions">
+          <span class="cb-char-count" id="cbCharCount">0 / 4000</span>
+          <button class="cb-send-btn" id="cbSendBtn" onclick="cbSendMessage()" title="Send (Enter)">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </div>
+      </div>
+      <p class="cb-input-hint">AI responses may be inaccurate. Verify important information independently.</p>
+    </div>
+
+    <!-- Hidden file input -->
+    <input type="file" id="cbFileInput" accept=".pdf" multiple style="display:none" onchange="cbHandleFileSelect(event)"/>
+  </main>
+
+  <!-- ── DOCUMENTS PANEL ──────────────────────────────────────── -->
+  <aside class="cb-docs-panel" id="cbDocsPanel">
+    <div class="cb-dp-header">
+      <span class="cb-dp-title">📄 Research Documents</span>
+      <button class="cb-icon-btn" onclick="cbCloseDocsPanel()" title="Close">✕</button>
+    </div>
+
+    <!-- Upload zone -->
+    <div class="cb-upload-zone" id="cbUploadZone"
+         ondragover="cbDragOver(event)" ondragleave="cbDragLeave(event)" ondrop="cbDrop(event)"
+         onclick="cbTriggerPdfUpload()">
+      <div class="cb-upload-icon">☁</div>
+      <p class="cb-upload-text">Drag & drop PDFs here<br>or <strong>click to browse</strong></p>
+      <p class="cb-upload-hint">PDF only • Max 25 MB each</p>
+    </div>
+
+    <!-- Upload progress list -->
+    <div id="cbUploadProgressList"></div>
+
+    <!-- Doc selection controls -->
+    <div class="cb-dp-controls" id="cbDpControls" style="display:none">
+      <span class="cb-dp-docs-label" id="cbDpDocsLabel">0 documents</span>
+      <button class="cb-dp-select-btn" onclick="cbSelectAllDocs()" id="cbSelectAllBtn">Select All</button>
+    </div>
+
+    <!-- Document list -->
+    <div class="cb-doc-list" id="cbDocList">
+      <div class="cb-dp-empty" id="cbDpEmpty">No documents uploaded yet.<br>Upload a PDF to start researching!</div>
+    </div>
+  </aside>
+</div>
+
+<!-- ══════════════════════════════════ MODALS ══════════════════════════════ -->
+
+<!-- Settings Modal -->
+<div class="cb-modal-overlay" id="cbSettingsModal" onclick="cbSettingsModalClick(event)">
+  <div class="cb-modal" onclick="event.stopPropagation()">
+    <div class="cb-modal-header">
+      <span class="cb-modal-title">⚙ Settings</span>
+      <button class="cb-modal-close" onclick="cbCloseSettings()">✕</button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="cb-modal-tabs">
+      <button class="cb-tab active" onclick="cbSwitchTab('profile',this)">Profile</button>
+      <button class="cb-tab" onclick="cbSwitchTab('preferences',this)">Preferences</button>
+      <button class="cb-tab" onclick="cbSwitchTab('stats',this)">Stats</button>
+      <button class="cb-tab cb-tab-danger" onclick="cbSwitchTab('account',this)">Account</button>
+    </div>
+
+    <!-- Profile tab -->
+    <div class="cb-tab-content" id="cb-tab-profile">
+      <div class="cb-profile-avatar-row">
+        <div class="cb-profile-avatar" id="cbProfileAvatar">U</div>
+        <div>
+          <div class="cb-profile-name" id="cbProfileNameDisplay">User</div>
+          <div class="cb-profile-email" id="cbProfileEmailDisplay"></div>
+        </div>
+      </div>
+      <div class="cb-form-group">
+        <label class="cb-form-label">Display Name</label>
+        <input class="cb-form-input" id="cbProfileName" type="text" placeholder="Your name"/>
+      </div>
+      <div class="cb-form-group">
+        <label class="cb-form-label">Email (display only)</label>
+        <input class="cb-form-input" id="cbProfileEmail" type="email" placeholder="your@email.com"/>
+      </div>
+      <button class="cb-btn-primary" onclick="cbSaveProfile()">Save Profile</button>
+    </div>
+
+    <!-- Preferences tab -->
+    <div class="cb-tab-content" id="cb-tab-preferences" style="display:none">
+      <div class="cb-form-group">
+        <label class="cb-form-label">AI Model</label>
+        <select class="cb-form-input" id="cbModelSelect">
+          <option value="llama3.2">llama3.2 (default)</option>
+          <option value="llama3">llama3</option>
+          <option value="mistral">mistral</option>
+          <option value="gemma">gemma</option>
+          <option value="codellama">codellama</option>
+          <option value="phi3">phi3</option>
+        </select>
+      </div>
+      <div class="cb-form-group">
+        <label class="cb-form-label">Available Models (from Ollama)</label>
+        <div class="cb-models-list" id="cbAvailableModels">Loading…</div>
+      </div>
+      <button class="cb-btn-primary" onclick="cbSavePreferences()">Save Preferences</button>
+    </div>
+
+    <!-- Stats tab -->
+    <div class="cb-tab-content" id="cb-tab-stats" style="display:none">
+      <div class="cb-stats-grid">
+        <div class="cb-stat-item"><div class="cb-stat-val" id="cbStatChats">—</div><div class="cb-stat-lbl">Chats</div></div>
+        <div class="cb-stat-item"><div class="cb-stat-val" id="cbStatDocs">—</div><div class="cb-stat-lbl">Documents</div></div>
+        <div class="cb-stat-item"><div class="cb-stat-val" id="cbStatMsgs">—</div><div class="cb-stat-lbl">Messages</div></div>
+        <div class="cb-stat-item"><div class="cb-stat-val" id="cbStatStorage">—</div><div class="cb-stat-lbl">Storage</div></div>
+      </div>
+    </div>
+
+    <!-- Account tab -->
+    <div class="cb-tab-content" id="cb-tab-account" style="display:none">
+      <div class="cb-danger-zone">
+        <h3 class="cb-danger-title">⚠ Danger Zone</h3>
+        <p class="cb-danger-desc">Permanently delete your account and all associated data including chat history, uploaded documents, and research data. This action <strong>cannot be undone</strong>.</p>
+        <button class="cb-btn-danger" onclick="cbOpenDeleteModal()">🗑 Delete My Account</button>
+      </div>
+      <div style="margin-top:20px;">
+        <button class="cb-btn-secondary" onclick="cbLogout()">🚪 Log Out</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Account Confirmation Modal -->
+<div class="cb-modal-overlay" id="cbDeleteModal" onclick="cbDeleteModalClick(event)">
+  <div class="cb-modal cb-modal-sm" onclick="event.stopPropagation()">
+    <div class="cb-modal-header">
+      <span class="cb-modal-title">⚠ Delete Account</span>
+      <button class="cb-modal-close" onclick="cbCloseDeleteModal()">✕</button>
+    </div>
+    <div class="cb-delete-warning">
+      <p>This will permanently remove:</p>
+      <ul>
+        <li>All chat conversations</li>
+        <li>All uploaded documents</li>
+        <li>All research history</li>
+        <li>All settings and preferences</li>
+      </ul>
+      <p><strong>This action cannot be undone.</strong></p>
+    </div>
+    <div class="cb-form-group">
+      <label class="cb-form-label">Type <strong>DELETE</strong> to confirm</label>
+      <input class="cb-form-input" id="cbDeleteConfirmInput" type="text" placeholder="Type DELETE here" oninput="cbCheckDeleteConfirm(this)"/>
+    </div>
+    <div class="cb-modal-actions">
+      <button class="cb-btn-secondary" onclick="cbCloseDeleteModal()">Cancel</button>
+      <button class="cb-btn-danger" id="cbConfirmDeleteBtn" onclick="cbDeleteAccount()" disabled>Delete Account</button>
+    </div>
+  </div>
+</div>
+
+<!-- Rename Chat Modal -->
+<div class="cb-modal-overlay" id="cbRenameModal" onclick="cbRenameModalClick(event)">
+  <div class="cb-modal cb-modal-sm" onclick="event.stopPropagation()">
+    <div class="cb-modal-header">
+      <span class="cb-modal-title">✏ Rename Chat</span>
+      <button class="cb-modal-close" onclick="cbCloseRenameModal()">✕</button>
+    </div>
+    <div class="cb-form-group">
+      <label class="cb-form-label">Chat Title</label>
+      <input class="cb-form-input" id="cbRenameInput" type="text" placeholder="Enter chat title…" maxlength="120"
+             onkeydown="if(event.key==='Enter') cbConfirmRename()"/>
+    </div>
+    <div class="cb-modal-actions">
+      <button class="cb-btn-secondary" onclick="cbCloseRenameModal()">Cancel</button>
+      <button class="cb-btn-primary" onclick="cbConfirmRename()">Rename</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="cb-toast" id="cbToast">
+  <span class="cb-toast-icon" id="cbToastIcon">✅</span>
+  <span id="cbToastMsg">Done</span>
+</div>
+
+<script src="config.js"></script>
+<script src="js/startup.js"></script>
+<script src="js/chatbot-app.js"></script>
+</body>
+</html>

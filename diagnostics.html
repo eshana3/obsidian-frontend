@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Diagnostics — Obsidian</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#F8F6F2;color:#2B2B2B;min-height:100vh;padding:28px 20px}
+h1{font-size:1.1rem;font-weight:800;color:#2B2B2B;margin-bottom:4px}
+.sub{font-size:.8rem;color:#A0A0A0;margin-bottom:24px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-bottom:20px}
+.card{background:#fff;border:1px solid rgba(210,195,180,.35);border-radius:16px;padding:18px;box-shadow:0 2px 12px rgba(100,80,60,.06)}
+.card-title{font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#A0A0A0;margin-bottom:12px}
+.service{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(210,195,180,.2)}
+.service:last-child{border-bottom:none}
+.dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;background:#ccc}
+.dot.online{background:#7DC4A0;box-shadow:0 0 0 3px rgba(125,196,160,.2)}
+.dot.offline{background:#E07070;box-shadow:0 0 0 3px rgba(224,112,112,.2)}
+.dot.checking{background:#C4956A;animation:pulse 1.4s ease-in-out infinite}
+.dot.degraded{background:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.2)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.svc-name{font-size:.84rem;font-weight:600;flex:1}
+.svc-status{font-size:.74rem;color:#A0A0A0;margin-left:auto}
+.svc-latency{font-size:.7rem;color:#C4956A;font-weight:700;min-width:46px;text-align:right}
+.metric-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(210,195,180,.15)}
+.metric-row:last-child{border-bottom:none}
+.metric-label{font-size:.78rem;color:#6B6B6B}
+.metric-val{font-size:.78rem;font-weight:700;font-family:Consolas,monospace;color:#2B2B2B;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ok{color:#4A9070}.err{color:#C05050}.warn{color:#8B6040}
+button{padding:8px 18px;border:none;border-radius:50px;background:linear-gradient(135deg,#C4956A,#9B8EC4);color:#fff;font-size:.82rem;font-weight:700;cursor:pointer;transition:opacity .2s;margin:4px}
+button:hover{opacity:.85}button:disabled{opacity:.45;cursor:not-allowed}
+.btn-secondary{background:rgba(196,149,106,.12);color:#8B6040;border:1px solid rgba(196,149,106,.25)}
+.log-box{background:#fff;border:1px solid rgba(210,195,180,.35);border-radius:16px;padding:18px;margin-bottom:20px}
+.log-title{font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#A0A0A0;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
+#logOutput{font-family:Consolas,'Courier New',monospace;font-size:.73rem;line-height:1.6;height:280px;overflow-y:auto;background:#F8F6F2;border-radius:10px;padding:12px}
+.log-info{color:#2B6CB0}.log-warn{color:#8B6040}.log-error{color:#C05050}
+.ts{color:#A0A0A0;margin-right:6px}
+.actions{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px}
+.badge{display:inline-block;padding:3px 9px;border-radius:6px;font-size:.7rem;font-weight:700}
+.badge-ok{background:rgba(125,196,160,.15);color:#4A9070}
+.badge-err{background:rgba(224,112,112,.1);color:#C05050}
+.badge-warn{background:rgba(196,149,106,.12);color:#8B6040}
+a.back{display:inline-flex;align-items:center;gap:6px;color:#A0A0A0;text-decoration:none;font-size:.82rem;margin-bottom:20px;font-weight:500}
+a.back:hover{color:#2B2B2B}
+</style>
+</head>
+<body>
+<a href="dashboard.html" class="back">← Back to Dashboard</a>
+<h1>◆ Obsidian — Diagnostics</h1>
+<p class="sub" id="diagTs">Last checked: never</p>
+
+<div class="actions">
+  <button onclick="runDiagnostics()">🔄 Run All Checks</button>
+  <button onclick="testLogin()" class="btn-secondary">🔑 Test Auth Endpoint</button>
+  <button onclick="clearLogs()" class="btn-secondary">🗑 Clear Logs</button>
+  <button onclick="copyLogs()" class="btn-secondary">📋 Copy Logs</button>
+  <button onclick="pingKeepAlive()" class="btn-secondary">💓 Ping Keep-Alive</button>
+</div>
+
+<div class="grid">
+  <!-- Services -->
+  <div class="card">
+    <div class="card-title">Service Status</div>
+    <div class="service">
+      <div class="dot checking" id="dot-spring"></div>
+      <span class="svc-name">Spring Boot API</span>
+      <span class="svc-latency" id="lat-spring">—</span>
+      <span class="svc-status" id="txt-spring">checking…</span>
+    </div>
+    <div class="service">
+      <div class="dot checking" id="dot-chatbot"></div>
+      <span class="svc-name">Local AI Server</span>
+      <span class="svc-latency" id="lat-chatbot">—</span>
+      <span class="svc-status" id="txt-chatbot">checking…</span>
+    </div>
+    <div class="service">
+      <div class="dot checking" id="dot-ollama"></div>
+      <span class="svc-name">Ollama (LLM)</span>
+      <span class="svc-latency" id="lat-ollama">—</span>
+      <span class="svc-status" id="txt-ollama">checking…</span>
+    </div>
+    <div class="service">
+      <div class="dot" id="dot-auth" style="background:#C4956A"></div>
+      <span class="svc-name">Auth Session</span>
+      <span class="svc-latency" id="lat-auth">—</span>
+      <span class="svc-status" id="txt-auth">checking…</span>
+    </div>
+    <div class="service">
+      <div class="dot online" id="dot-frontend"></div>
+      <span class="svc-name">Frontend Server</span>
+      <span class="svc-latency" id="lat-frontend">—</span>
+      <span class="svc-status" id="txt-frontend">online</span>
+    </div>
+  </div>
+
+  <!-- Session info -->
+  <div class="card">
+    <div class="card-title">Session &amp; Auth</div>
+    <div class="metric-row"><span class="metric-label">Logged in as</span><span class="metric-val" id="m-user">—</span></div>
+    <div class="metric-row"><span class="metric-label">Email</span><span class="metric-val" id="m-email">—</span></div>
+    <div class="metric-row"><span class="metric-label">Token present</span><span class="metric-val" id="m-token">—</span></div>
+    <div class="metric-row"><span class="metric-label">Last keep-alive</span><span class="metric-val" id="m-ping">—</span></div>
+    <div class="metric-row"><span class="metric-label">Page origin</span><span class="metric-val" id="m-origin">—</span></div>
+  </div>
+
+  <!-- Spring Boot -->
+  <div class="card">
+    <div class="card-title">Spring Boot Details</div>
+    <div class="metric-row"><span class="metric-label">Health URL</span><span class="metric-val" id="m-springurl">—</span></div>
+    <div class="metric-row"><span class="metric-label">HTTP status</span><span class="metric-val" id="m-springhttp">—</span></div>
+    <div class="metric-row"><span class="metric-label">Response body</span><span class="metric-val" id="m-springbody">—</span></div>
+    <div class="metric-row"><span class="metric-label">Latency</span><span class="metric-val" id="m-springlat">—</span></div>
+    <div class="metric-row"><span class="metric-label">Cold-start risk</span><span class="metric-val" id="m-coldstart">—</span></div>
+  </div>
+
+  <!-- Local AI -->
+  <div class="card">
+    <div class="card-title">Local AI Server Details</div>
+    <div class="metric-row"><span class="metric-label">Health URL</span><span class="metric-val" id="m-cburl">—</span></div>
+    <div class="metric-row"><span class="metric-label">HTTP status</span><span class="metric-val" id="m-cbhttp">—</span></div>
+    <div class="metric-row"><span class="metric-label">Ollama status</span><span class="metric-val" id="m-ollamastat">—</span></div>
+    <div class="metric-row"><span class="metric-label">Chat model</span><span class="metric-val" id="m-model">—</span></div>
+    <div class="metric-row"><span class="metric-label">Embed model</span><span class="metric-val" id="m-embed">—</span></div>
+    <div class="metric-row"><span class="metric-label">Latency</span><span class="metric-val" id="m-cblat">—</span></div>
+  </div>
+</div>
+
+<!-- Log viewer -->
+<div class="log-box">
+  <div class="log-title">
+    <span>Event Log</span>
+    <span id="logCount" style="font-weight:400;color:#C4956A">0 entries</span>
+  </div>
+  <div id="logOutput"><span style="color:#A0A0A0;font-size:.78rem">Click "Run All Checks" to begin…</span></div>
+</div>
+
+<script src="config.js"></script>
+<script src="js/startup.js"></script>
+<script>
+'use strict';
+
+const SPRING_API     = ObsidianStartup.SPRING_API;
+const CHATBOT_API    = ObsidianStartup.CHATBOT_API;
+const HEALTH_SPRING  = ObsidianStartup.HEALTH_URL;
+const HEALTH_CHATBOT = ObsidianStartup.HEALTH_CHATBOT;
+
+let _running = false;
+
+/* ── Populate static fields ─────────────────────────────────── */
+function populateStatic() {
+  g('m-user').textContent    = localStorage.getItem('user_name')  || '(not logged in)';
+  g('m-email').textContent   = localStorage.getItem('user_email') || '—';
+  g('m-origin').textContent  = window.location.origin;
+  g('m-springurl').textContent = HEALTH_SPRING;
+  g('m-cburl').textContent     = HEALTH_CHATBOT;
+
+  const token = localStorage.getItem('jwt_token');
+  const tokenOk = token && token !== 'undefined' && token !== 'null';
+  g('m-token').innerHTML = tokenOk
+    ? '<span class="badge badge-ok">Present ✓</span>'
+    : '<span class="badge badge-err">Missing ✗</span>';
+  setDot('dot-auth', tokenOk ? 'online' : 'offline');
+  g('txt-auth').textContent = tokenOk ? 'authenticated' : 'not logged in';
+
+  const lastPing = parseInt(localStorage.getItem('obs_last_ping') || '0', 10);
+  g('m-ping').textContent = lastPing
+    ? `${Math.round((Date.now() - lastPing) / 60000)} min ago`
+    : 'never';
+}
+
+/* ── Main diagnostics run ───────────────────────────────────── */
+async function runDiagnostics() {
+  if (_running) return;
+  _running = true;
+  populateStatic();
+  appendLog('info', '═══ Diagnostics started ═══');
+
+  // Mark all services as checking
+  ['spring','chatbot','ollama'].forEach(s => {
+    setDot('dot-' + s, 'checking');
+    g('txt-' + s).textContent = 'checking…';
+    g('lat-' + s).textContent = '';
+  });
+
+  g('diagTs').textContent = 'Last checked: ' + new Date().toLocaleTimeString();
+
+  await Promise.all([
+    checkSpring(),
+    checkChatbot(),
+  ]);
+
+  appendLog('info', '═══ Diagnostics complete ═══');
+  _running = false;
+}
+
+/* ── Spring Boot check ──────────────────────────────────────── */
+async function checkSpring() {
+  appendLog('info', 'Checking Spring Boot API…', HEALTH_SPRING);
+  const t0 = Date.now();
+  try {
+    const res     = await ObsidianStartup.fetchWithTimeout(HEALTH_SPRING, {}, 12000);
+    const latency = Date.now() - t0;
+    let body = null;
+    try { body = await res.json(); } catch (_) {}
+
+    const ok = res.ok;
+    setDot('dot-spring', ok ? 'online' : 'degraded');
+    g('txt-spring').textContent  = ok ? 'online' : `HTTP ${res.status}`;
+    g('lat-spring').textContent  = latency + 'ms';
+    g('m-springhttp').innerHTML  = badge(res.status, ok ? 'ok' : 'err');
+    g('m-springbody').textContent = body ? JSON.stringify(body).slice(0, 80) : '(empty)';
+    g('m-springlat').innerHTML   = latBadge(latency);
+    g('m-coldstart').innerHTML   = latency > 5000
+      ? '<span class="badge badge-warn">High — server may have been sleeping</span>'
+      : '<span class="badge badge-ok">Low — server is warm</span>';
+    appendLog(ok ? 'info' : 'warn', `Spring Boot ${ok ? 'OK' : 'ERROR'} HTTP ${res.status} ${latency}ms`);
+  } catch (err) {
+    const latency = Date.now() - t0;
+    setDot('dot-spring', 'offline');
+    g('txt-spring').textContent  = 'offline';
+    g('lat-spring').textContent  = latency + 'ms';
+    g('m-springhttp').innerHTML  = '<span class="badge badge-err">unreachable</span>';
+    g('m-springbody').textContent = err.message;
+    g('m-coldstart').innerHTML   = '<span class="badge badge-warn">Unknown — server offline</span>';
+    appendLog('error', 'Spring Boot OFFLINE: ' + err.message);
+  }
+}
+
+/* ── Chatbot + Ollama check ─────────────────────────────────── */
+async function checkChatbot() {
+  appendLog('info', 'Checking Local AI Server…', HEALTH_CHATBOT);
+  const t0 = Date.now();
+  try {
+    const res     = await ObsidianStartup.fetchWithTimeout(HEALTH_CHATBOT, {}, 5000);
+    const latency = Date.now() - t0;
+    let body = null;
+    try { body = await res.json(); } catch (_) {}
+
+    const ok      = res.ok;
+    const ollamaOk = body?.ollama === 'online';
+
+    setDot('dot-chatbot', ok ? 'online' : 'degraded');
+    setDot('dot-ollama',  ollamaOk ? 'online' : 'offline');
+    g('txt-chatbot').textContent  = ok ? 'online' : `HTTP ${res.status}`;
+    g('txt-ollama').textContent   = ollamaOk ? 'online' : 'offline';
+    g('lat-chatbot').textContent  = latency + 'ms';
+    g('lat-ollama').textContent   = ollamaOk ? '—' : 'N/A';
+    g('m-cbhttp').innerHTML       = badge(res.status, ok ? 'ok' : 'err');
+    g('m-ollamastat').innerHTML   = body?.ollama === 'online'
+      ? '<span class="badge badge-ok">online ✓</span>'
+      : '<span class="badge badge-err">offline ✗</span>';
+    g('m-model').textContent  = body?.model        || '—';
+    g('m-embed').textContent  = body?.embedModel   || '—';
+    g('m-cblat').innerHTML    = latBadge(latency);
+    appendLog(ok ? 'info' : 'warn', `Chatbot ${ok ? 'OK' : 'ERROR'} HTTP ${res.status} ${latency}ms`);
+    appendLog(ollamaOk ? 'info' : 'warn', `Ollama ${ollamaOk ? 'online' : 'OFFLINE'}`);
+  } catch (err) {
+    const latency = Date.now() - t0;
+    setDot('dot-chatbot', 'offline');
+    setDot('dot-ollama',  'offline');
+    g('txt-chatbot').textContent  = 'offline';
+    g('txt-ollama').textContent   = 'unknown';
+    g('lat-chatbot').textContent  = latency + 'ms';
+    g('m-cbhttp').innerHTML       = '<span class="badge badge-err">unreachable</span>';
+    g('m-ollamastat').innerHTML   = '<span class="badge badge-warn">unknown</span>';
+    appendLog('error', 'Local AI Server OFFLINE: ' + err.message);
+    appendLog('warn',  'Start with: start-server.bat');
+  }
+}
+
+/* ── Test login endpoint ─────────────────────────────────────── */
+async function testLogin() {
+  appendLog('info', 'Testing auth endpoint OPTIONS preflight…');
+  const t0 = Date.now();
+  try {
+    const res = await ObsidianStartup.fetchWithTimeout(
+      ObsidianStartup.SPRING_API + '/auth/login',
+      { method: 'OPTIONS' },
+      8000
+    );
+    appendLog('info', `Auth endpoint responded HTTP ${res.status} in ${Date.now()-t0}ms`);
+  } catch (err) {
+    appendLog('error', 'Auth endpoint unreachable: ' + err.message);
+  }
+}
+
+/* ── Keep-alive ping ─────────────────────────────────────────── */
+async function pingKeepAlive() {
+  appendLog('info', 'Sending manual keep-alive ping…');
+  try {
+    const res = await ObsidianStartup.fetchWithTimeout(HEALTH_SPRING, {}, 10000);
+    localStorage.setItem('obs_last_ping', String(Date.now()));
+    appendLog('info', `Keep-alive ping OK HTTP ${res.status}`);
+    g('m-ping').textContent = 'just now';
+  } catch (err) {
+    appendLog('error', 'Keep-alive ping failed: ' + err.message);
+  }
+}
+
+/* ── Log viewer ─────────────────────────────────────────────── */
+function appendLog(level, msg, detail) {
+  ObsidianStartup.log(level, msg, detail);
+  renderLogs();
+}
+
+function renderLogs() {
+  const el    = document.getElementById('logOutput');
+  const logs  = ObsidianStartup.getLogs();
+  const count = document.getElementById('logCount');
+  if (count) count.textContent = logs.length + ' entries';
+  el.innerHTML = logs.map(l => {
+    const ts  = l.ts.slice(11, 19);
+    const cls = `log-${l.level}`;
+    const detail = l.data ? ` <span style="opacity:.6">${JSON.stringify(l.data).slice(0,60)}</span>` : '';
+    return `<div class="${cls}"><span class="ts">${ts}</span>${l.msg}${detail}</div>`;
+  }).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+function clearLogs() {
+  // Can't clear the ring buffer directly from outside, so just flush the UI
+  document.getElementById('logOutput').innerHTML =
+    '<span style="color:#A0A0A0;font-size:.78rem">Log cleared.</span>';
+  const count = document.getElementById('logCount');
+  if (count) count.textContent = '0 entries';
+}
+
+function copyLogs() {
+  const text = ObsidianStartup.getLogs().map(l =>
+    `${l.ts} [${l.level.toUpperCase()}] ${l.msg}${l.data ? ' ' + JSON.stringify(l.data) : ''}`
+  ).join('\n');
+  navigator.clipboard.writeText(text).then(() => alert('Logs copied to clipboard.'));
+}
+
+/* ── Helpers ─────────────────────────────────────────────────── */
+function g(id) { return document.getElementById(id); }
+
+function setDot(id, state) {
+  const el = g(id);
+  if (!el) return;
+  el.className = 'dot ' + state;
+}
+
+function badge(val, cls) {
+  return `<span class="badge badge-${cls}">${val}</span>`;
+}
+
+function latBadge(ms) {
+  const cls = ms < 500 ? 'ok' : ms < 3000 ? 'warn' : 'err';
+  return `<span class="badge badge-${cls}">${ms}ms</span>`;
+}
+
+/* ── Live log listener ───────────────────────────────────────── */
+window.addEventListener('obsidian:log', () => renderLogs());
+
+/* ── Auto-run on load ────────────────────────────────────────── */
+window.addEventListener('DOMContentLoaded', () => {
+  populateStatic();
+  renderLogs();
+  runDiagnostics();
+});
+</script>
+</body>
+</html>
