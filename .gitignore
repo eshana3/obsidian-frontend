@@ -7,10 +7,13 @@ chatbot-server/node_modules/
 chatbot-server/.env
 *.env.local
 
-# SQLite databases
+# SQLite databases and WAL files
 *.db
+*.db-shm
+*.db-wal
 *.sqlite
 *.sqlite3
+chatbot-server/data/
 chatbot-server/db/
 
 # Uploaded files (user data)
