@@ -370,8 +370,15 @@ async function handleRegister(e) {
 /* ════════════════════════════════════════════════════════════════
    OAUTH
 ════════════════════════════════════════════════════════════════ */
-function handleGoogleLogin() { window.location.href = `${API_BASE}/oauth2/authorization/google`; }
-function handleGithubLogin() { window.location.href = `${API_BASE}/oauth2/authorization/github`; }
+// OAuth redirects go directly to Spring Boot — browser navigation has no CORS
+// restriction, so we don't need the proxy here. The proxy is only needed for
+// fetch() calls where the browser enforces CORS.
+function handleGoogleLogin() {
+  window.location.href = `${ObsidianStartup.SPRING_DIRECT}/oauth2/authorization/google`;
+}
+function handleGithubLogin() {
+  window.location.href = `${ObsidianStartup.SPRING_DIRECT}/oauth2/authorization/github`;
+}
 function handleForgotPassword(e) {
   e.preventDefault();
   alert('Implement password reset at: /api/auth/forgot-password');

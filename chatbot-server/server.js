@@ -119,13 +119,26 @@ app.use('/api/spring', (req, res) => {
   logger.info(`→ PROXY ${req.method} ${targetPath}`, { host: SPRING_HOST });
 
   const proxyReq = https.request(options, (proxyRes) => {
+    const status = proxyRes.statusCode;
+    res.status(status);
+
+    // Forward all upstream headers except hop-by-hop ones.
+    // Critical for OAuth: Spring Boot returns 302 with Location → GitHub.
+    const HOP_BY_HOP = new Set(['transfer-encoding', 'connection', 'keep-alive', 'proxy-connection', 'upgrade', 'te', 'trailer']);
+    for (const [key, value] of Object.entries(proxyRes.headers)) {
+      if (!HOP_BY_HOP.has(key.toLowerCase())) res.setHeader(key, value);
+    }
+
+    // For redirects just end the response — no body needed.
+    if (status >= 300 && status < 400) {
+      logger.info(`← PROXY ${status} ${targetPath} → ${proxyRes.headers.location || '?'}`);
+      return res.end();
+    }
+
     let data = '';
     proxyRes.on('data', chunk => { data += chunk; });
     proxyRes.on('end', () => {
-      res.status(proxyRes.statusCode);
-      const ct = proxyRes.headers['content-type'] || '';
-      res.setHeader('Content-Type', ct.includes('json') ? 'application/json' : 'text/plain');
-      logger.info(`← PROXY ${proxyRes.statusCode} ${targetPath} (${data.length}b)`);
+      logger.info(`← PROXY ${status} ${targetPath} (${data.length}b)`);
       res.send(data);
     });
   });
