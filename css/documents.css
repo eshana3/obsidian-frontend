@@ -299,6 +299,26 @@ body {
 
 .page-words { font-size: .72rem; color: var(--muted); margin-left: auto; }
 
+/* Raw / Cleaned toggle */
+.text-mode-toggle {
+  display: flex; gap: 0; border: 1.5px solid var(--border); border-radius: 10px;
+  overflow: hidden; margin-left: auto; flex-shrink: 0;
+}
+.mode-btn {
+  padding: 5px 14px; background: transparent; border: none; cursor: pointer;
+  font-family: var(--font); font-size: .8rem; font-weight: 600;
+  color: var(--text2); transition: var(--transition);
+}
+.mode-btn.active {
+  background: var(--gradient); color: #fff;
+}
+.mode-btn:hover:not(.active) { background: rgba(196,149,106,0.10); }
+
+.cleaned-badge {
+  padding: 2px 9px; border-radius: 20px; font-size: .7rem; font-weight: 600;
+  background: rgba(155,142,196,0.15); color: var(--lavender);
+}
+
 .page-text {
   font-size: .88rem; line-height: 1.75; color: var(--text);
   white-space: pre-wrap; word-break: break-word; max-height: 520px;

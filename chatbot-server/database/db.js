@@ -107,6 +107,23 @@ db.exec(`
   );
 
   CREATE INDEX IF NOT EXISTS idx_doc_pages_doc ON document_pages(document_id, page_number);
+
+  -- Track 2.3: Text Cleaning Reports
+  CREATE TABLE IF NOT EXISTS text_cleaning_reports (
+    id                    TEXT PRIMARY KEY,
+    document_id           TEXT NOT NULL UNIQUE,
+    chars_before          INTEGER DEFAULT 0,
+    chars_after           INTEGER DEFAULT 0,
+    reduction_percent     REAL    DEFAULT 0,
+    removed_page_numbers  INTEGER DEFAULT 0,
+    removed_headers       INTEGER DEFAULT 0,
+    detected_header_lines INTEGER DEFAULT 0,
+    removed_urls          INTEGER DEFAULT 0,
+    removed_emails        INTEGER DEFAULT 0,
+    removed_boilerplate   INTEGER DEFAULT 0,
+    created_at            DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(document_id) REFERENCES documents(id) ON DELETE CASCADE
+  );
 `);
 
 // ── Safe column migrations (ALTER TABLE ADD COLUMN IF NOT EXISTS) ─────────────
@@ -123,6 +140,17 @@ for (const [col, type] of Object.entries(_newDocCols)) {
     db.exec(`ALTER TABLE documents ADD COLUMN ${col} ${type}`);
     logger.info(`Migrated: added documents.${col}`);
   }
+}
+
+// Track 2.3: cleaned text column on document_pages
+const _pageCols = db.pragma('table_info(document_pages)').map(c => c.name);
+if (!_pageCols.includes('cleaned_text')) {
+  db.exec('ALTER TABLE document_pages ADD COLUMN cleaned_text TEXT DEFAULT NULL');
+  logger.info('Migrated: added document_pages.cleaned_text');
+}
+if (!_pageCols.includes('cleaned_word_count')) {
+  db.exec('ALTER TABLE document_pages ADD COLUMN cleaned_word_count INTEGER DEFAULT 0');
+  logger.info('Migrated: added document_pages.cleaned_word_count');
 }
 
 logger.info('Database ready', { path: DB_PATH });

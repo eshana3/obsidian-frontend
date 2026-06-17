@@ -22,6 +22,7 @@ let activeTab   = 'upload';
 let currentPage = 1;
 let totalPages  = 0;
 let pollTimer   = null;
+let textMode    = 'raw'; // 'raw' | 'cleaned'
 
 // ── DOM helpers ───────────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -192,13 +193,35 @@ async function loadTextTab(docId) {
   panel.innerHTML = '<div style="text-align:center;padding:40px"><span class="spinner-ring"></span></div>';
 
   try {
-    const res  = await fetch(`${API}/${docId}/pages`, { headers: userHeaders() });
-    const data = await res.json();
-    if (!data.success) throw new Error(data.error);
+    // Fetch raw pages and cleaned pages in parallel
+    const [rawRes, cleanedRes] = await Promise.all([
+      fetch(`${API}/${docId}/pages`,        { headers: userHeaders() }),
+      fetch(`${API}/${docId}/cleaned-text`, { headers: userHeaders() }),
+    ]);
+    const rawData     = await rawRes.json();
+    const cleanedData = cleanedRes.ok ? await cleanedRes.json() : { success: false, pages: [] };
 
-    totalPages  = data.total || 0;
+    if (!rawData.success) throw new Error(rawData.error);
+
+    // Merge cleaned_text onto each page object
+    const cleanedMap = {};
+    if (cleanedData.success) {
+      for (const cp of cleanedData.pages) {
+        cleanedMap[cp.page_number] = cp;
+      }
+    }
+    const pages = (rawData.pages || []).map(p => ({
+      ...p,
+      cleaned_text:       cleanedMap[p.page_number]?.text       ?? null,
+      cleaned_word_count: cleanedMap[p.page_number]?.wordCount  ?? null,
+    }));
+
+    textMode    = 'raw';
+    totalPages  = pages.length;
     currentPage = 1;
-    renderTextTab(data.pages);
+    window._docPages = pages;
+
+    renderTextTab(pages);
   } catch (err) {
     panel.innerHTML = `<p style="color:var(--red)">Failed to load text: ${escHtml(err.message)}</p>`;
   }
@@ -215,22 +238,35 @@ function renderTextTab(pages) {
   }
 
   totalPages = pages.length;
-  window._docPages = pages;
+  const hasClean = pages.some(p => p.cleaned_text != null);
 
   $('tab-text').innerHTML = `
     <div class="text-nav">
-      <label>Page</label>
       <button class="text-prev" onclick="changePage(-1)" id="btnPrev">◀ Prev</button>
       <span class="text-page-info" id="pageInfo">1 / ${totalPages}</span>
       <button class="text-next" onclick="changePage(1)" id="btnNext">Next ▶</button>
       <select class="text-page-select" id="pageSelect" onchange="jumpToPage(this.value)">
         ${pages.map(p => `<option value="${p.page_number}">Page ${p.page_number} — ${p.status}</option>`).join('')}
       </select>
+      ${hasClean ? `
+      <div class="text-mode-toggle" id="textModeToggle">
+        <button class="mode-btn active" id="modeBtnRaw"     onclick="setTextMode('raw')">Raw</button>
+        <button class="mode-btn"        id="modeBtnCleaned" onclick="setTextMode('cleaned')">Cleaned</button>
+      </div>` : ''}
     </div>
     <div id="pageContent"></div>
   `;
 
   renderPage(1);
+}
+
+function setTextMode(mode) {
+  textMode = mode;
+  const raw     = $('modeBtnRaw');
+  const cleaned = $('modeBtnCleaned');
+  if (raw)     raw.classList.toggle('active',     mode === 'raw');
+  if (cleaned) cleaned.classList.toggle('active', mode === 'cleaned');
+  renderPage(currentPage);
 }
 
 function renderPage(num) {
@@ -242,24 +278,31 @@ function renderPage(num) {
   const content = $('pageContent');
   if (!content) return;
 
-  const isEmpty = !page.text || page.text.trim().length === 0;
+  const showCleaned = textMode === 'cleaned' && page.cleaned_text != null;
+  const displayText = showCleaned ? page.cleaned_text : page.text;
+  const wordCount   = showCleaned ? (page.cleaned_word_count ?? 0) : page.word_count;
+  const charCount   = showCleaned ? (displayText || '').length     : page.char_count;
+  const isEmpty     = !displayText || displayText.trim().length === 0;
+
   content.innerHTML = `
     <div class="page-card">
       <div class="page-card-header">
         <span class="page-num">PAGE ${page.page_number}</span>
         <span class="page-status-badge ${page.status}">${page.status}</span>
         ${page.ocr_required ? '<span style="font-size:.72rem;color:var(--amber)">⚠️ OCR needed</span>' : ''}
-        <span class="page-words">${page.word_count} words · ${page.char_count} chars</span>
+        ${showCleaned ? '<span class="cleaned-badge">✨ Cleaned</span>' : ''}
+        <span class="page-words">${wordCount} words · ${charCount} chars</span>
       </div>
-      <div class="page-text ${isEmpty ? 'empty' : ''}">${isEmpty ? (page.status === 'SCANNED' ? 'Image-only page — OCR required to extract text.' : 'No text content on this page.') : escHtml(page.text)}</div>
+      <div class="page-text ${isEmpty ? 'empty' : ''}">${isEmpty
+        ? (page.status === 'SCANNED' ? 'Image-only page — OCR required to extract text.' : 'No text content on this page.')
+        : escHtml(displayText)}</div>
     </div>
   `;
 
-  // Update nav controls
-  const info  = $('pageInfo');
-  const prev  = $('btnPrev');
-  const next  = $('btnNext');
-  const sel   = $('pageSelect');
+  const info = $('pageInfo');
+  const prev = $('btnPrev');
+  const next = $('btnNext');
+  const sel  = $('pageSelect');
   if (info) info.textContent = `${num} / ${totalPages}`;
   if (prev) prev.disabled = num <= 1;
   if (next) next.disabled = num >= totalPages;
@@ -283,21 +326,65 @@ async function loadValidationTab(docId) {
   panel.innerHTML = '<div style="text-align:center;padding:40px"><span class="spinner-ring"></span></div>';
 
   try {
-    const res  = await fetch(`${API}/${docId}/validation`, { headers: userHeaders() });
-    const data = await res.json();
-    if (!data.success) throw new Error(data.error);
-    renderValidation(data.report, data.pages);
+    const [valRes, cleanRes] = await Promise.all([
+      fetch(`${API}/${docId}/validation`,      { headers: userHeaders() }),
+      fetch(`${API}/${docId}/cleaning-report`, { headers: userHeaders() }),
+    ]);
+    const valData  = await valRes.json();
+    const cleanData = cleanRes.ok ? await cleanRes.json() : { success: false };
+    if (!valData.success) throw new Error(valData.error);
+    renderValidation(valData.report, valData.pages, cleanData.success ? cleanData.report : null);
   } catch (err) {
     panel.innerHTML = `<p style="color:var(--red)">No validation report available yet.</p>`;
   }
 }
 
-function renderValidation(report, pages) {
+function renderValidation(report, pages, cleaning) {
   const statusIcon = { SUCCESS: '✅', PARTIAL: '⚠️', FAILED: '❌', PENDING: '⏳' };
+
+  const cleaningSection = cleaning ? `
+    <div class="meta-section-title">✨ Text Cleaning Report (Track 2.3)</div>
+    <div class="val-summary">
+      <div class="val-stat total">
+        <div class="val-stat-num">${cleaning.reductionPercent.toFixed(1)}%</div>
+        <div class="val-stat-label">Noise Reduced</div>
+      </div>
+      <div class="val-stat success">
+        <div class="val-stat-num">${fmtNum(cleaning.charsBefore)}</div>
+        <div class="val-stat-label">Chars Before</div>
+      </div>
+      <div class="val-stat blank">
+        <div class="val-stat-num">${fmtNum(cleaning.charsAfter)}</div>
+        <div class="val-stat-label">Chars After</div>
+      </div>
+    </div>
+    <div class="val-summary" style="margin-top:8px">
+      <div class="val-stat total">
+        <div class="val-stat-num">${cleaning.removedPageNumbers}</div>
+        <div class="val-stat-label">Page Nos. Removed</div>
+      </div>
+      <div class="val-stat success">
+        <div class="val-stat-num">${cleaning.removedHeaders}</div>
+        <div class="val-stat-label">Headers Removed</div>
+      </div>
+      <div class="val-stat blank">
+        <div class="val-stat-num">${cleaning.detectedHeaderLines}</div>
+        <div class="val-stat-label">Header Patterns</div>
+      </div>
+      <div class="val-stat scanned">
+        <div class="val-stat-num">${cleaning.removedUrls}</div>
+        <div class="val-stat-label">URLs Removed</div>
+      </div>
+      <div class="val-stat failed">
+        <div class="val-stat-num">${cleaning.removedBoilerplate}</div>
+        <div class="val-stat-label">Boilerplate Removed</div>
+      </div>
+    </div>
+  ` : '';
 
   $('tab-validation').innerHTML = `
     <div class="val-overall ${report.status}">
-      ${statusIcon[report.status] || '?'} Overall: ${report.status}
+      ${statusIcon[report.status] || '?'} Quality Validation: ${report.status}
     </div>
     <div class="val-summary">
       <div class="val-stat total">
@@ -322,11 +409,13 @@ function renderValidation(report, pages) {
       </div>
     </div>
 
+    ${cleaningSection}
+
     ${pages && pages.length > 0 ? `
     <div class="meta-section-title">Page-level results</div>
     <div class="val-table-wrap">
       <table class="val-table">
-        <thead><tr><th>Page</th><th>Status</th><th>Words</th><th>Chars</th><th>OCR?</th></tr></thead>
+        <thead><tr><th>Page</th><th>Status</th><th>Raw Words</th><th>Raw Chars</th><th>OCR?</th></tr></thead>
         <tbody>
           ${pages.map(p => `
             <tr>
@@ -342,6 +431,11 @@ function renderValidation(report, pages) {
     </div>
     ` : ''}
   `;
+}
+
+function fmtNum(n) {
+  if (n == null) return '—';
+  return Number(n).toLocaleString();
 }
 
 // ── Tab switching (called from HTML onclick) ──────────────────────────────────

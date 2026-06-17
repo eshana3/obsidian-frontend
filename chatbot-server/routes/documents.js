@@ -10,6 +10,7 @@ const { db, ensureUser }              = require('../database/db');
 const { extractPdfAll, extractPdfMetadata, chunkText } = require('../services/pdf');
 const { extractDocxAll, extractTxtAll }                = require('../services/docx');
 const { validateDocument }            = require('../services/quality');
+const { cleanDocumentPages }          = require('../services/textcleaner');
 const { generateEmbeddings }          = require('../services/embeddings');
 const logger   = require('../utils/logger');
 
@@ -111,30 +112,61 @@ async function processDocument(docId, filePath, fileType, userId, originalName) 
     // ── 2. Quality validation ───────────────────────────────────────────────
     const report = validateDocument(pages, fileType);
 
-    // ── 3. Persist pages ────────────────────────────────────────────────────
+    // ── 3. Text cleaning (Track 2.3) ────────────────────────────────────────
+    // Runs AFTER quality validation so blank/scanned pages are already flagged.
+    // Only clean pages that have extractable text (OK status).
+    const { cleanedPages, report: cleaningReport } = cleanDocumentPages(report.pages, fileType);
+    logger.info('Text cleaned', { docId, charsBefore: cleaningReport.charsBefore, charsAfter: cleaningReport.charsAfter, reduction: cleaningReport.reductionPercent + '%' });
+
+    // ── 4. Persist pages (raw + cleaned text) ───────────────────────────────
     const insertPage = db.prepare(`
       INSERT INTO document_pages
-        (id, document_id, page_number, text, word_count, char_count, status, ocr_required)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        (id, document_id, page_number, text, word_count, char_count, status, ocr_required,
+         cleaned_text, cleaned_word_count)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     db.transaction(() => {
-      for (const p of report.pages) {
-        insertPage.run(uuidv4(), docId, p.pageNumber, p.text, p.wordCount, p.charCount, p.status, p.ocrRequired ? 1 : 0);
+      for (const p of cleanedPages) {
+        insertPage.run(
+          uuidv4(), docId, p.pageNumber,
+          p.text, p.wordCount, p.charCount, p.status, p.ocrRequired ? 1 : 0,
+          p.cleanedText ?? null, p.cleanedWordCount ?? 0
+        );
       }
     })();
 
-    // ── 4. Persist validation report ────────────────────────────────────────
+    // ── 5. Persist validation report ────────────────────────────────────────
     db.prepare(`
       INSERT OR REPLACE INTO validation_reports
         (id, document_id, total_pages, processed_pages, blank_pages, scanned_pages, failed_pages, overall_status)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(uuidv4(), docId, report.totalPages, report.processedPages, report.blankPages, report.scannedPages, report.failedPages, report.overallStatus);
 
-    // ── 5. RAG chunking + embeddings ────────────────────────────────────────
+    // ── 6. Persist cleaning report ───────────────────────────────────────────
+    db.prepare(`
+      INSERT OR REPLACE INTO text_cleaning_reports
+        (id, document_id, chars_before, chars_after, reduction_percent,
+         removed_page_numbers, removed_headers, detected_header_lines,
+         removed_urls, removed_emails, removed_boilerplate)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      uuidv4(), docId,
+      cleaningReport.charsBefore, cleaningReport.charsAfter, cleaningReport.reductionPercent,
+      cleaningReport.removedPageNumbers, cleaningReport.removedHeaders, cleaningReport.detectedHeaderLines,
+      cleaningReport.removedUrls, cleaningReport.removedEmails, cleaningReport.removedBoilerplate
+    );
+
+    // ── 7. RAG chunking + embeddings (uses CLEANED text for better retrieval) ─
+    // Join cleaned text from all non-blank pages as the corpus for chunking.
+    const cleanedFullText = cleanedPages
+      .filter(p => p.status === 'OK' && p.cleanedText)
+      .map(p => p.cleanedText)
+      .join('\n\n');
+
     let chunkCount = 0;
-    if (fullText && fullText.trim().length > 60) {
-      const chunks     = chunkText(fullText);
+    if (cleanedFullText.trim().length > 60) {
+      const chunks     = chunkText(cleanedFullText);
       const embeddings = await generateEmbeddings(chunks.map(c => c.text));
 
       const insertChunk = db.prepare(`
@@ -381,6 +413,71 @@ router.get('/:id/validation', (req, res) => {
   } catch (err) {
     logger.error('Validation report error', { error: err.message });
     res.status(500).json({ success: false, error: 'Could not fetch validation report.' });
+  }
+});
+
+/**
+ * GET /api/documents/:id/cleaned-text
+ * Returns the cleaned version of extracted pages.
+ * Query: ?page=N to get a single page, otherwise all pages.
+ */
+router.get('/:id/cleaned-text', (req, res) => {
+  const pageNum = parseInt(req.query.page, 10) || null;
+  try {
+    const doc = db.prepare('SELECT id, status FROM documents WHERE id = ?').get(req.params.id);
+    if (!doc)                       return res.status(404).json({ success: false, error: 'Document not found.' });
+    if (doc.status === 'processing') return res.status(202).json({ success: false, error: 'Still processing.' });
+
+    let pages;
+    if (pageNum) {
+      pages = db.prepare(`
+        SELECT page_number, cleaned_text AS text, cleaned_word_count AS wordCount,
+               char_count, status, ocr_required
+        FROM document_pages WHERE document_id = ? AND page_number = ?
+      `).all(req.params.id, pageNum);
+    } else {
+      pages = db.prepare(`
+        SELECT page_number, cleaned_text AS text, cleaned_word_count AS wordCount,
+               char_count, status, ocr_required
+        FROM document_pages WHERE document_id = ? ORDER BY page_number ASC
+      `).all(req.params.id);
+    }
+
+    res.json({ success: true, documentId: req.params.id, pages, total: pages.length });
+  } catch (err) {
+    logger.error('Cleaned-text fetch error', { error: err.message });
+    res.status(500).json({ success: false, error: 'Could not fetch cleaned text.' });
+  }
+});
+
+/**
+ * GET /api/documents/:id/cleaning-report
+ * Returns the text-cleaning statistics for a document.
+ */
+router.get('/:id/cleaning-report', (req, res) => {
+  try {
+    const row = db.prepare('SELECT * FROM text_cleaning_reports WHERE document_id = ?').get(req.params.id);
+    if (!row) return res.status(404).json({ success: false, error: 'No cleaning report found.' });
+
+    res.json({
+      success: true,
+      report: {
+        documentId:          row.document_id,
+        charsBefore:         row.chars_before,
+        charsAfter:          row.chars_after,
+        reductionPercent:    row.reduction_percent,
+        removedPageNumbers:  row.removed_page_numbers,
+        removedHeaders:      row.removed_headers,
+        detectedHeaderLines: row.detected_header_lines,
+        removedUrls:         row.removed_urls,
+        removedEmails:       row.removed_emails,
+        removedBoilerplate:  row.removed_boilerplate,
+        createdAt:           row.created_at,
+      }
+    });
+  } catch (err) {
+    logger.error('Cleaning report fetch error', { error: err.message });
+    res.status(500).json({ success: false, error: 'Could not fetch cleaning report.' });
   }
 });
 
