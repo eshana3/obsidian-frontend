@@ -79,4 +79,109 @@ function chunkText(text) {
   return chunks;
 }
 
-module.exports = { extractTextFromPdf, chunkText };
+/**
+ * Extract text page-by-page from a PDF.
+ * Uses pdf-parse's pagerender callback — pdf-parse processes pages sequentially,
+ * so push() into pageTexts maintains the correct order.
+ *
+ * Returns:
+ *   { pages: [{ pageNumber, text, wordCount, charCount, isBlank, isScanned, hasError }],
+ *     fullText: string, numPages: number }
+ */
+async function extractPdfAll(filePath) {
+  const buffer    = fs.readFileSync(filePath);
+  const pageTexts = [];   // populated in page order by the callback
+
+  let data;
+  try {
+    data = await pdfParse(buffer, {
+      pagerender: async (pageData) => {
+        try {
+          const tc = await pageData.getTextContent();
+          let text = '';
+          let lastY = null;
+          for (const item of tc.items) {
+            if (lastY !== null && Math.abs(lastY - item.transform[5]) > 5) {
+              text += '\n';
+            }
+            text += item.str || '';
+            lastY = item.transform[5];
+          }
+          const trimmed = text.replace(/\x00/g, '').trim();
+          pageTexts.push({ text: trimmed, error: null });
+          return trimmed;
+        } catch (e) {
+          pageTexts.push({ text: '', error: e.message });
+          return '';
+        }
+      }
+    });
+  } catch (err) {
+    logger.error('PDF page extraction error', { filePath, error: err.message });
+    throw new Error(`PDF extraction failed: ${err.message}`);
+  }
+
+  const numPages  = data.numpages || pageTexts.length;
+  const fullText  = (data.text || '').replace(/\x00/g, '');
+  const info      = data.info || {};
+
+  const pages = pageTexts.map((p, i) => {
+    const text      = p?.text || '';
+    const charCount = text.length;
+    const wordCount = text ? text.split(/\s+/).filter(Boolean).length : 0;
+    const isBlank   = charCount < 20;
+    const isScanned = isBlank && !p?.error;  // blank without error = likely image-only
+    return {
+      pageNumber: i + 1,
+      text,
+      wordCount,
+      charCount,
+      isBlank,
+      isScanned,
+      hasError: !!(p?.error),
+    };
+  });
+
+  return { pages, fullText, numPages, info };
+}
+
+/**
+ * Extract basic PDF metadata from the info dictionary and first-page text.
+ * Pass the result of extractPdfAll to avoid re-parsing.
+ */
+function extractPdfMetadata(fullText, info, numPages, originalName) {
+  const path = require('path');
+  const baseName = path.basename(originalName, path.extname(originalName));
+
+  // Title
+  let title = (info.Title || '').trim() || null;
+  if (!title) {
+    const firstLine = fullText.split('\n').map(l => l.trim()).find(l => l.length > 5 && l.length < 300);
+    title = firstLine || baseName;
+  }
+
+  // Authors
+  const authors = (info.Author || '').trim() || null;
+
+  // Year from creation date or text
+  let year = null;
+  if (info.CreationDate) {
+    const m = info.CreationDate.match(/D:(\d{4})/);
+    if (m) year = parseInt(m[1]);
+  }
+  if (!year) {
+    const m = fullText.slice(0, 1000).match(/\b(19|20)\d{2}\b/);
+    if (m) year = parseInt(m[0]);
+  }
+
+  // Keywords
+  const keywords = (info.Keywords || '').trim() || null;
+
+  // DOI
+  const doiMatch = fullText.match(/10\.\d{4,}\/[^\s,;)\]]+/);
+  const doi = doiMatch ? doiMatch[0] : null;
+
+  return { title: title || baseName, authors, year, keywords, doi, pageCount: numPages };
+}
+
+module.exports = { extractTextFromPdf, chunkText, extractPdfAll, extractPdfMetadata };

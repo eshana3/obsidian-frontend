@@ -31,7 +31,8 @@ body {
   color: var(--text-primary);
   min-height: 100vh;
   display: flex; align-items: center; justify-content: center;
-  overflow: hidden; position: relative;
+  overflow-y: auto; position: relative;
+  padding: 32px 16px;
 }
 
 /* Background */

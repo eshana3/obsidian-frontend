@@ -175,6 +175,7 @@ const PAGE_MAP = {
   '/dashboard':   'dashboard.html',
   '/diagnostics': 'diagnostics.html',
   '/chatbot':     'chatbot.html',
+  '/documents':   'documents.html',
 };
 Object.entries(PAGE_MAP).forEach(([route, file]) => {
   app.get(route, (_req, res) => res.sendFile(path.join(STATIC_ROOT, file)));

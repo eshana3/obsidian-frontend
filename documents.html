@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Documents — Obsidian Research</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="css/documents.css"/>
+</head>
+<body>
+
+<!-- ── Top bar ──────────────────────────────────────────────────────────── -->
+<header class="topbar">
+  <a href="dashboard.html" class="topbar-back">← Dashboard</a>
+  <span class="topbar-title">📄 Document Processing Engine</span>
+  <div class="topbar-user">
+    <span id="topbarUserName" style="font-size:.82rem;color:var(--text2)"></span>
+    <div class="topbar-avatar" id="topbarAvatar">U</div>
+  </div>
+</header>
+
+<!-- ── Layout ────────────────────────────────────────────────────────────── -->
+<div class="layout">
+
+  <!-- Sidebar: document list -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-header-row">
+        <span class="sidebar-heading">Documents</span>
+        <span class="sidebar-count" id="sidebarCount">0</span>
+      </div>
+      <button class="btn-upload-new" onclick="showTab('upload')">+ Upload New</button>
+    </div>
+
+    <div class="search-wrap">
+      <div class="search-wrapper">
+        <span class="search-icon">🔍</span>
+        <input class="search-box" type="text" placeholder="Search documents…"
+               oninput="onSearch(this.value)" style="padding-left:34px"/>
+      </div>
+    </div>
+
+    <div class="doc-list" id="docList">
+      <div class="sidebar-empty">
+        <div class="sidebar-empty-icon">⏳</div>
+        <div>Loading…</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main viewer -->
+  <section class="viewer">
+
+    <!-- Tab bar -->
+    <div class="viewer-tabs">
+      <button class="tab-btn active" id="tabBtn-upload"     onclick="switchTab('upload')">⬆ Upload</button>
+      <button class="tab-btn"        id="tabBtn-metadata"   onclick="switchTab('metadata')">🏷 Metadata</button>
+      <button class="tab-btn"        id="tabBtn-text"       onclick="switchTab('text')">📖 Extracted Text</button>
+      <button class="tab-btn"        id="tabBtn-validation" onclick="switchTab('validation')">✅ Validation</button>
+    </div>
+
+    <!-- Viewer body -->
+    <div class="viewer-body">
+
+      <!-- Upload tab -->
+      <div id="tab-upload">
+        <div class="upload-zone" id="uploadZone"
+             onclick="document.getElementById('fileInput').click()"
+             ondragover="event.preventDefault();this.classList.add('drag-over')"
+             ondragleave="this.classList.remove('drag-over')"
+             ondrop="event.preventDefault();this.classList.remove('drag-over');const f=event.dataTransfer?.files?.[0];if(f)uploadFile(f)">
+          <div class="upload-icon">📂</div>
+          <div class="upload-title">Drop your document here</div>
+          <div class="upload-sub">or click to browse your files</div>
+          <div class="upload-types">
+            <span class="upload-type-badge">PDF</span>
+            <span class="upload-type-badge">DOCX</span>
+            <span class="upload-type-badge">TXT</span>
+          </div>
+          <button class="btn-browse" onclick="event.stopPropagation();document.getElementById('fileInput').click()">Browse Files</button>
+        </div>
+        <input type="file" id="fileInput" accept=".pdf,.docx,.txt" style="display:none"/>
+
+        <div class="upload-progress" id="uploadProgress">
+          <div class="progress-name" id="progressName">Uploading…</div>
+          <div class="progress-bar-wrap">
+            <div class="progress-bar" id="progressBar"></div>
+          </div>
+          <div class="progress-status" id="progressStatus">Uploading file…</div>
+        </div>
+
+        <div class="upload-limits">
+          Max file size: 25 MB · Supported: PDF, DOCX, TXT
+        </div>
+      </div>
+
+      <!-- Metadata tab -->
+      <div id="tab-metadata" hidden>
+        <div class="viewer-placeholder">
+          <div class="viewer-placeholder-icon">🏷️</div>
+          <div class="viewer-placeholder-text">Select a document to view its metadata</div>
+        </div>
+      </div>
+
+      <!-- Extracted Text tab -->
+      <div id="tab-text" hidden>
+        <div class="viewer-placeholder">
+          <div class="viewer-placeholder-icon">📖</div>
+          <div class="viewer-placeholder-text">Select a document to view extracted text</div>
+        </div>
+      </div>
+
+      <!-- Validation tab -->
+      <div id="tab-validation" hidden>
+        <div class="viewer-placeholder">
+          <div class="viewer-placeholder-icon">✅</div>
+          <div class="viewer-placeholder-text">Select a document to view validation report</div>
+        </div>
+      </div>
+
+    </div><!-- /viewer-body -->
+  </section>
+</div><!-- /layout -->
+
+<!-- Toast -->
+<div class="toast" id="toast">
+  <span id="toastMsg"></span>
+</div>
+
+<script src="config.js"></script>
+<script src="js/startup.js"></script>
+<script src="js/documents.js"></script>
+</body>
+</html>

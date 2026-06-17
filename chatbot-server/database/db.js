@@ -78,6 +78,35 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_messages_chat    ON messages(chat_id, created_at);
   CREATE INDEX IF NOT EXISTS idx_documents_user   ON documents(user_id, upload_date DESC);
   CREATE INDEX IF NOT EXISTS idx_chunks_document  ON chunks(document_id, chunk_index);
+
+  -- Module 5: extended document repository (page-wise storage + metadata)
+  CREATE TABLE IF NOT EXISTS document_pages (
+    id           TEXT PRIMARY KEY,
+    document_id  TEXT NOT NULL,
+    page_number  INTEGER NOT NULL,
+    heading      TEXT DEFAULT '',
+    text         TEXT NOT NULL DEFAULT '',
+    word_count   INTEGER DEFAULT 0,
+    char_count   INTEGER DEFAULT 0,
+    status       TEXT DEFAULT 'OK' CHECK(status IN ('OK','BLANK','SCANNED','ERROR')),
+    ocr_required INTEGER DEFAULT 0,
+    FOREIGN KEY(document_id) REFERENCES documents(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS validation_reports (
+    id              TEXT PRIMARY KEY,
+    document_id     TEXT NOT NULL UNIQUE,
+    total_pages     INTEGER DEFAULT 0,
+    processed_pages INTEGER DEFAULT 0,
+    blank_pages     INTEGER DEFAULT 0,
+    scanned_pages   INTEGER DEFAULT 0,
+    failed_pages    INTEGER DEFAULT 0,
+    overall_status  TEXT DEFAULT 'PENDING',
+    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(document_id) REFERENCES documents(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_doc_pages_doc ON document_pages(document_id, page_number);
 `);
 
 // ── Safe column migrations (ALTER TABLE ADD COLUMN IF NOT EXISTS) ─────────────
@@ -86,6 +115,14 @@ const _docCols = db.pragma('table_info(documents)').map(c => c.name);
 if (!_docCols.includes('chunk_count')) {
   db.exec('ALTER TABLE documents ADD COLUMN chunk_count INTEGER DEFAULT 0');
   logger.info('Migrated: added documents.chunk_count');
+}
+// Module 4 & 5: metadata + file-type columns
+const _newDocCols = { file_type: 'TEXT', title: 'TEXT', authors: 'TEXT', year: 'INTEGER', keywords: 'TEXT', doi: 'TEXT' };
+for (const [col, type] of Object.entries(_newDocCols)) {
+  if (!_docCols.includes(col)) {
+    db.exec(`ALTER TABLE documents ADD COLUMN ${col} ${type}`);
+    logger.info(`Migrated: added documents.${col}`);
+  }
 }
 
 logger.info('Database ready', { path: DB_PATH });
