@@ -3,7 +3,7 @@
 
 const express  = require('express');
 const { v4: uuidv4 } = require('uuid');
-const { generateResponse, checkOllamaHealth } = require('../services/llm');
+const { generateResponse, checkOllamaHealth, PROVIDER } = require('../services/llm');
 const { buildRAGContext }  = require('../services/rag');
 const { db, ensureUser }   = require('../database/db');
 const { chatRules, handleValidationErrors } = require('../middleware/validate');
@@ -42,19 +42,28 @@ function getUserId(req) {
 
 function httpStatusForError(err) {
   const k = err._kind;
-  if (k === 'ollama_down')     return 503;
+  if (k === 'provider_down')   return 503;
+  if (k === 'auth_failed')     return 503;
+  if (k === 'rate_limited')    return 429;
   if (k === 'model_not_found') return 422;
   if (k === 'timeout')         return 504;
   return 500;
 }
 
 function userMessageForError(err) {
-  const model = process.env.OLLAMA_MODEL || 'llama3.2';
   const k = err._kind;
-  if (k === 'ollama_down')     return 'Ollama is not running. Start it with: ollama serve';
-  if (k === 'model_not_found') return `Model "${model}" is not pulled. Run: ollama pull ${model}`;
-  if (k === 'timeout')         return 'The LLM took too long. Try a shorter message or restart Ollama.';
-  return 'Failed to generate a response. Please try again.';
+  const providerName = PROVIDER === 'groq' ? 'Groq' : PROVIDER === 'openai' ? 'OpenAI' : 'Ollama';
+  const model = PROVIDER === 'groq'   ? (process.env.GROQ_MODEL   || 'llama3-8b-8192')
+              : PROVIDER === 'openai' ? (process.env.OPENAI_MODEL  || 'gpt-3.5-turbo')
+              :                          (process.env.OLLAMA_MODEL  || 'llama3.2');
+  if (k === 'provider_down')   return PROVIDER === 'ollama'
+    ? 'Ollama is not running locally. Start it with: ollama serve'
+    : `${providerName} is unreachable. Check your internet connection.`;
+  if (k === 'auth_failed')     return `${providerName} API key is invalid. Check your ${PROVIDER === 'groq' ? 'GROQ' : 'OPENAI'}_API_KEY environment variable.`;
+  if (k === 'rate_limited')    return `${providerName} rate limit reached. Wait a moment and try again.`;
+  if (k === 'model_not_found') return `Model "${model}" not found on ${providerName}. Check your model configuration.`;
+  if (k === 'timeout')         return 'The AI took too long to respond. Try a shorter message.';
+  return `AI provider error (${providerName}). Check server logs for details.`;
 }
 
 /**
@@ -74,13 +83,16 @@ router.get('/health', async (_req, res) => {
   try {
     const h = await checkOllamaHealth();
     res.json({
-      success: true, chatbot: 'online',
+      success: true,
+      chatbot: 'online',
+      provider: h.provider || PROVIDER,
       ollama: h.online ? 'online' : 'offline',
-      model: h.currentModel, modelAvailable: h.modelAvailable,
+      model: h.currentModel,
+      modelAvailable: h.modelAvailable,
       availableModels: h.models
     });
   } catch (err) {
-    res.status(500).json({ success: false, chatbot: 'online', ollama: 'error' });
+    res.status(500).json({ success: false, chatbot: 'online', provider: PROVIDER, ollama: 'error' });
   }
 });
 

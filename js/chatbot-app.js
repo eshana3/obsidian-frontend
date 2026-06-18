@@ -139,10 +139,18 @@ async function cbCheckHealth() {
     cbState.ollamaOnline = h.ollama === 'online';
     const wasOffline = cbState.serverOffline;
     cbState.serverOffline = false;
-    cbSetStatus(cbState.ollamaOnline ? 'ready' : 'offline',
-                cbState.ollamaOnline ? 'Ready'  : 'Ollama offline');
+
+    // Show provider name in status (Groq / OpenAI / Ollama)
+    const providerLabel = h.provider
+      ? h.provider.charAt(0).toUpperCase() + h.provider.slice(1)
+      : 'AI';
+    const readyText = cbState.ollamaOnline
+      ? `Ready (${providerLabel})`
+      : `${providerLabel} offline`;
+
+    cbSetStatus(cbState.ollamaOnline ? 'ready' : 'offline', readyText);
     if (h.availableModels) cbRenderAvailableModels(h.availableModels);
-    // Notify user that the server came back online
+
     if (wasOffline) {
       cbToast('success', '✅', 'Server is back online');
       cbLoadHistory();

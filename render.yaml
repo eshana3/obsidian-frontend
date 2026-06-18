@@ -24,9 +24,16 @@ services:
       - key: SPRING_BASE_URL
         value: https://obsidian-backend-n8zo.onrender.com
 
-      # Ollama — not available on Render's free tier.
-      # AI chat features will return errors until you provide an external Ollama URL
-      # or replace llm.js with an API-based model (OpenAI, Groq, Anthropic).
+      # ── AI Provider (pick ONE) ────────────────────────────────────────────────
+      # Option A — Groq (recommended, FREE): get key at console.groq.com
+      #   Provider is auto-selected when GROQ_API_KEY is set (takes priority over Ollama).
+      - key: GROQ_API_KEY
+        sync: false        # set this in the Render dashboard — do not commit your key
+      - key: GROQ_MODEL
+        value: llama3-8b-8192   # free models: llama3-8b-8192, llama3-70b-8192, mixtral-8x7b-32768
+
+      # Option B — OpenAI (paid): set OPENAI_API_KEY in Render dashboard instead.
+      # Option C — Ollama (local dev only, not available on Render free tier):
       - key: OLLAMA_BASE_URL
         value: http://localhost:11434
       - key: OLLAMA_MODEL
