@@ -1,6 +1,8 @@
 'use strict';
 // startup.js must be loaded before this file
 const API_BASE = ObsidianStartup.SPRING_API;
+// Node chatbot server — used for chat, documents, and history
+const CB_API   = ObsidianStartup.CHATBOT_API;
 
 // ── Auth guard ────────────────────────────────────────────────────────────────
 (function checkAuth() {
@@ -223,31 +225,30 @@ function focusChatInput() {
 }
 
 async function sendToAI(message, chatArea, typingId) {
-  const token = localStorage.getItem('jwt_token');
+  const userId    = localStorage.getItem('user_email') || localStorage.getItem('cb_user_id') || 'anonymous';
+  const userName  = localStorage.getItem('user_name')  || 'User';
+  const userEmail = localStorage.getItem('user_email') || '';
   try {
-    const response = await fetch(`${API_BASE}/chat/ask`, {
+    const response = await fetch(`${CB_API}/chat`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify({ question: message }),
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id':    userId,
+        'x-user-name':  userName,
+        'x-user-email': userEmail,
+      },
+      body: JSON.stringify({ message }),
     });
     removeTyping(typingId);
-    if (response.ok) {
-      const data = await response.json();
-      appendMessage(chatArea, 'ai', data.answer || data.response || 'I received your question.');
-    } else if (response.status === 401) {
-      appendMessage(chatArea, 'ai', '⚠️ Session expired. Logging out…');
-      setTimeout(handleLogout, 2000);
+    const data = await response.json().catch(() => ({}));
+    if (data.success) {
+      appendMessage(chatArea, 'ai', data.response || 'I received your question.');
     } else {
-      appendMessage(chatArea, 'ai', '⚠️ Server error. Please try again.');
+      appendMessage(chatArea, 'ai', data.error || '⚠️ Server error. Please try again.');
     }
   } catch (e) {
     removeTyping(typingId);
-    const demos = [
-      'Based on your uploaded documents, this relates to transformer architectures — multi-head attention allows the model to attend to information from different representation subspaces simultaneously.',
-      'According to your papers, the methodology involves dense passage retrieval followed by generative language model synthesis for accurate answers.',
-      '⚠️ Demo mode — Spring Boot server is offline. Start backend with: mvn spring-boot:run',
-    ];
-    appendMessage(chatArea, 'ai', demos[Math.floor(Math.random() * demos.length)]);
+    appendMessage(chatArea, 'ai', '⚠️ Could not reach the AI server. Make sure it is running.');
   }
 }
 
@@ -278,45 +279,80 @@ function removeTyping(id) {
 }
 
 // ── Documents ─────────────────────────────────────────────────────────────────
-const sampleDocs = [
-  { name: 'Attention Is All You Need.pdf',       icon: 'arxiv', emoji: '🔬', time: '2 days ago' },
-  { name: 'BERT Pre-training Deep.pdf',          icon: 'pdf',   emoji: '📕', time: '5 days ago' },
-  { name: 'RAG Knowledge-Intensive NLP.pdf',     icon: 'arxiv', emoji: '🔬', time: '1 week ago' },
-  { name: 'GPT-4 Technical Report.pdf',          icon: 'pdf',   emoji: '📕', time: '2 weeks ago' },
-];
-
-function populateDocuments() {
+async function populateDocuments() {
   const list = document.getElementById('allDocsList');
   if (!list) return;
-  list.innerHTML = sampleDocs.map(d =>
-    `<div class="doc-item">
-       <div class="doc-icon ${d.icon}">${d.emoji}</div>
-       <div><div class="doc-name">${d.name}</div><div class="doc-meta">${d.time}</div></div>
-       <div class="doc-actions">
-         <button class="doc-btn" onclick="showPanel('chat')">💬</button>
-         <button class="doc-btn" onclick="this.closest('.doc-item').remove();showToast('success','🗑️ Deleted.')">🗑️</button>
-       </div>
-     </div>`
-  ).join('');
+  const userId   = localStorage.getItem('user_email') || localStorage.getItem('cb_user_id') || 'anonymous';
+  const userName = localStorage.getItem('user_name')  || 'User';
+  try {
+    const res  = await fetch(`${CB_API}/documents`, {
+      headers: { 'x-user-id': userId, 'x-user-name': userName },
+    });
+    const data = await res.json();
+    const docs = data.documents || [];
+    if (docs.length === 0) {
+      list.innerHTML = '<div style="color:var(--text-secondary,#888);padding:20px;text-align:center;font-size:.85rem;">No documents yet. Upload a PDF below.</div>';
+      return;
+    }
+    list.innerHTML = docs.map(d => `
+      <div class="doc-item">
+        <div class="doc-icon pdf">📄</div>
+        <div>
+          <div class="doc-name">${escDash(d.originalName || d.filename || 'Document')}</div>
+          <div class="doc-meta">${d.status} · ${fmtDashSize(d.size)}</div>
+        </div>
+        <div class="doc-actions">
+          <button class="doc-btn" onclick="showPanel('chat')" title="Chat">💬</button>
+          <button class="doc-btn" onclick="deleteDashDoc(event,'${escDash(d.id)}')" title="Delete">🗑️</button>
+        </div>
+      </div>`).join('');
+  } catch (_) {
+    list.innerHTML = '<div style="color:var(--text-secondary,#888);padding:20px;text-align:center;font-size:.85rem;">Could not load documents.</div>';
+  }
 }
 
-const sampleHistory = [
-  { title: 'Transformer attention mechanisms explained', time: '2h ago' },
-  { title: 'BERT vs GPT: Key differences',              time: 'Yesterday' },
-  { title: 'RAG pipeline architecture overview',        time: '3 days ago' },
-  { title: 'How does positional encoding work?',        time: '5 days ago' },
-];
+async function deleteDashDoc(e, docId) {
+  e.stopPropagation();
+  if (!confirm('Delete this document?')) return;
+  const userId   = localStorage.getItem('user_email') || localStorage.getItem('cb_user_id') || 'anonymous';
+  const userName = localStorage.getItem('user_name')  || 'User';
+  try {
+    await fetch(`${CB_API}/documents/${docId}`, {
+      method: 'DELETE',
+      headers: { 'x-user-id': userId, 'x-user-name': userName },
+    });
+    showToast('success', '🗑️ Deleted.');
+    populateDocuments();
+  } catch (_) {
+    showToast('error', '❌ Delete failed.');
+  }
+}
 
-function populateHistory() {
+// ── History ───────────────────────────────────────────────────────────────────
+async function populateHistory() {
   const list = document.getElementById('fullHistoryList');
   if (!list) return;
-  list.innerHTML = sampleHistory.map(h =>
-    `<div class="history-item">
-       <span class="history-dot"></span>
-       <span class="history-title">${h.title}</span>
-       <span class="history-time">${h.time}</span>
-     </div>`
-  ).join('');
+  const userId   = localStorage.getItem('user_email') || localStorage.getItem('cb_user_id') || 'anonymous';
+  const userName = localStorage.getItem('user_name')  || 'User';
+  try {
+    const res  = await fetch(`${CB_API}/history`, {
+      headers: { 'x-user-id': userId, 'x-user-name': userName },
+    });
+    const data = await res.json();
+    const chats = data.chats || [];
+    if (chats.length === 0) {
+      list.innerHTML = '<div style="color:var(--text-secondary,#888);padding:20px;text-align:center;font-size:.85rem;">No conversations yet.</div>';
+      return;
+    }
+    list.innerHTML = chats.slice(0, 15).map(h => `
+      <div class="history-item">
+        <span class="history-dot"></span>
+        <span class="history-title">${escDash(h.title || 'Chat')}</span>
+        <span class="history-time">${fmtDashTime(h.updated_at || h.created_at)}</span>
+      </div>`).join('');
+  } catch (_) {
+    list.innerHTML = '<div style="color:var(--text-secondary,#888);padding:20px;text-align:center;font-size:.85rem;">Could not load history.</div>';
+  }
 }
 
 // ── File upload ───────────────────────────────────────────────────────────────
@@ -346,23 +382,25 @@ function handleFileUpload(e) {
 
 async function uploadFile(file) {
   showToast('info', `⏳ Uploading "${file.name}"…`);
-  const token = localStorage.getItem('jwt_token');
+  const userId   = localStorage.getItem('user_email') || localStorage.getItem('cb_user_id') || 'anonymous';
+  const userName = localStorage.getItem('user_name')  || 'User';
   try {
     const fd = new FormData();
     fd.append('file', file);
-    const r = await fetch(`${API_BASE}/documents/upload`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}` },
-      body: fd,
+    const r = await fetch(`${CB_API}/documents/upload`, {
+      method:  'POST',
+      headers: { 'x-user-id': userId, 'x-user-name': userName },
+      body:    fd,
     });
-    if (r.ok) {
+    const data = await r.json().catch(() => ({}));
+    if (r.ok && data.success) {
       showToast('success', `✅ "${file.name}" uploaded!`);
       populateDocuments();
     } else {
-      showToast('error', '❌ Upload failed.');
+      showToast('error', `❌ ${data.error || 'Upload failed.'}`);
     }
-  } catch (e) {
-    showToast('success', `✅ (Demo) "${file.name}" would upload when server runs.`);
+  } catch (_) {
+    showToast('error', '❌ Could not reach the AI server.');
   }
 }
 
@@ -404,10 +442,9 @@ async function handleLogout() {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}` },
     });
-  } catch (e) { /* ignore — clear session regardless */ }
-  localStorage.removeItem('jwt_token');
-  localStorage.removeItem('user_name');
-  localStorage.removeItem('user_email');
+  } catch (_) { /* ignore — clear session regardless */ }
+  ['jwt_token', 'user_name', 'user_email',
+   'cb_user_id', 'cb_user_name', 'cb_user_email', 'cb_prefs'].forEach(k => localStorage.removeItem(k));
   window.location.href = 'login.html';
 }
 
@@ -435,3 +472,29 @@ document.addEventListener('keydown', e => {
 const _style = document.createElement('style');
 _style.textContent = '@keyframes typingBounce{0%,100%{transform:translateY(0);opacity:.5}50%{transform:translateY(-5px);opacity:1}}';
 document.head.appendChild(_style);
+
+// ── Dashboard helpers ─────────────────────────────────────────────────────────
+function escDash(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function fmtDashSize(bytes) {
+  if (!bytes) return '—';
+  if (bytes < 1024)       return bytes + ' B';
+  if (bytes < 1048576)    return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1048576).toFixed(1) + ' MB';
+}
+
+function fmtDashTime(iso) {
+  if (!iso) return '';
+  const d    = new Date(iso);
+  const now  = new Date();
+  const diff = Math.floor((now - d) / 1000);
+  if (diff < 60)    return 'just now';
+  if (diff < 3600)  return Math.floor(diff / 60) + 'm ago';
+  if (d.toDateString() === now.toDateString()) return 'Today';
+  const yd = new Date(now); yd.setDate(yd.getDate() - 1);
+  if (d.toDateString() === yd.toDateString()) return 'Yesterday';
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+}

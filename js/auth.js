@@ -257,9 +257,14 @@ async function handleLogin(e) {
         return;
       }
 
-      localStorage.setItem('jwt_token',  token);
-      localStorage.setItem('user_name',  data.name  || data.username || 'User');
-      localStorage.setItem('user_email', data.email || email);
+      localStorage.setItem('jwt_token',    token);
+      localStorage.setItem('user_name',    data.name  || data.username || 'User');
+      localStorage.setItem('user_email',   data.email || email);
+      // Bridge Spring Boot identity into Node chatbot server keys so
+      // chatbot.html and documents.html share the same user record in SQLite.
+      localStorage.setItem('cb_user_id',    data.email || email);
+      localStorage.setItem('cb_user_name',  data.name  || data.username || 'User');
+      localStorage.setItem('cb_user_email', data.email || email);
 
       setStep('login', 'done', 'authenticated');
       setProgress(100);

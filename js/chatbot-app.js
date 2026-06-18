@@ -54,14 +54,21 @@ async function cbInit() {
 
 /* ── User identity ─────────────────────────────────────────────── */
 function cbEnsureUserId() {
-  let id = localStorage.getItem('cb_user_id');
-  if (!id) { id = cbUUID(); localStorage.setItem('cb_user_id', id); }
+  // Prefer the Spring Boot authenticated email so chatbot and documents share
+  // the same user record in SQLite. Fall back to the stored UUID for
+  // unauthenticated / offline use.
+  const email = localStorage.getItem('user_email');
+  let id = email || localStorage.getItem('cb_user_id');
+  if (!id) { id = cbUUID(); }
+  localStorage.setItem('cb_user_id', id);
   cbState.userId = id;
 }
 
 function cbLoadUserProfile() {
-  const n = localStorage.getItem('cb_user_name')  || 'User';
-  const e = localStorage.getItem('cb_user_email') || '';
+  // Prefer Spring Boot auth identity (set on login) so the chatbot header
+  // shows the same name/email as the rest of the app.
+  const n = localStorage.getItem('user_name')  || localStorage.getItem('cb_user_name')  || 'User';
+  const e = localStorage.getItem('user_email') || localStorage.getItem('cb_user_email') || '';
   cbState.userName  = n;
   cbState.userEmail = e;
   cbUpdateUserUI();
@@ -1153,18 +1160,29 @@ async function cbDeleteAccount() {
   if (!inp || inp.value !== 'DELETE') return;
   try {
     await cbApiFetch('/account', { method: 'DELETE', body: JSON.stringify({ confirm: 'DELETE' }) });
-    ['cb_user_id','cb_user_name','cb_user_email','cb_prefs'].forEach(k => localStorage.removeItem(k));
+    ['cb_user_id', 'cb_user_name', 'cb_user_email', 'cb_prefs',
+     'jwt_token', 'user_name', 'user_email'].forEach(k => localStorage.removeItem(k));
     cbCloseDeleteModal();
-    cbToast('success', '✅', 'Account deleted. Refreshing…');
-    setTimeout(() => location.reload(), 1800);
+    cbToast('success', '✅', 'Account deleted');
+    setTimeout(() => { window.location.href = 'login.html'; }, 1800);
   } catch (err) {
     cbToast('error', '⚠', err.message || 'Delete failed');
   }
 }
 
-function cbLogout() {
-  ['cb_user_id','cb_user_name','cb_user_email'].forEach(k => localStorage.removeItem(k));
-  location.reload();
+async function cbLogout() {
+  const token = localStorage.getItem('jwt_token');
+  try {
+    if (token) {
+      await fetch(
+        (typeof ObsidianStartup !== 'undefined' ? ObsidianStartup.SPRING_API : '/api/spring') + '/auth/logout',
+        { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }
+      );
+    }
+  } catch (_) { /* clear session regardless */ }
+  ['cb_user_id', 'cb_user_name', 'cb_user_email', 'cb_prefs',
+   'jwt_token', 'user_name', 'user_email'].forEach(k => localStorage.removeItem(k));
+  window.location.href = 'login.html';
 }
 
 /* ════════════════════════════════════════════════════════════════

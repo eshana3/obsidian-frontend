@@ -16,10 +16,10 @@ const chatRules = [
     .isLength({ max: MAX_MSG_LEN })
     .withMessage(`message cannot exceed ${MAX_MSG_LEN} characters.`),
 
-  body('sessionId')
+  body('chatId')
     .optional({ nullable: true })
     .isString()
-    .withMessage('sessionId must be a string.'),
+    .withMessage('chatId must be a string.'),
 ];
 
 /**

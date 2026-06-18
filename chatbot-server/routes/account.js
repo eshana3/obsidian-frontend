@@ -117,10 +117,11 @@ router.get('/stats', (req, res) => {
   const userId = getUserId(req);
   const stats = db.prepare(`
     SELECT
-      (SELECT COUNT(*) FROM chats     WHERE user_id = ?)    AS chats,
-      (SELECT COUNT(*) FROM documents WHERE user_id = ?)    AS documents,
-      (SELECT COALESCE(SUM(size),0) FROM documents WHERE user_id = ?) AS storage_bytes
-  `).get(userId, userId, userId);
+      (SELECT COUNT(*) FROM chats    WHERE user_id = ?)                                           AS chats,
+      (SELECT COUNT(*) FROM messages WHERE chat_id IN (SELECT id FROM chats WHERE user_id = ?))   AS messages,
+      (SELECT COUNT(*) FROM documents WHERE user_id = ?)                                          AS documents,
+      (SELECT COALESCE(SUM(size),0) FROM documents WHERE user_id = ?)                            AS storage_bytes
+  `).get(userId, userId, userId, userId);
   res.json({ success: true, stats });
 });
 
