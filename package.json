@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "start": "node chatbot-server/server.js",
-    "build": "npm install --prefix chatbot-server --production",
+    "build": "cd chatbot-server && npm install --production && npm rebuild",
     "dev": "node serve.js & node chatbot-server/server.js"
   },
   "engines": {

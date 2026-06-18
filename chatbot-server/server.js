@@ -1,6 +1,18 @@
 // server.js — Obsidian Research Assistant backend v2
 'use strict';
 
+// Must be registered before ANY require() so a native-module load failure
+// (e.g. better-sqlite3 not compiled for this Node version) appears in Render logs.
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL] uncaughtException:', err.message);
+  console.error(err.stack);
+  process.exit(1);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[FATAL] unhandledRejection:', reason);
+  process.exit(1);
+});
+
 require('dotenv').config();
 
 const express   = require('express');
