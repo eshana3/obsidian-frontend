@@ -173,8 +173,13 @@ app.use('/api/history',   historyRoutes);
 app.use('/api/account',   accountRoutes);
 
 // ── Clean URL routes (no .html extension needed) ──────────────────────────────
+// '/' serves index.html which contains a synchronous <head> script that
+// redirects to /login (unauthenticated) or /chatbot (authenticated) before
+// any page content is painted — effectively making '/' a routing shell.
+// '/home' preserves the marketing landing page for direct access.
 const PAGE_MAP = {
   '/':            'index.html',
+  '/home':        'index.html',
   '/login':       'login.html',
   '/register':    'register.html',
   '/dashboard':   'dashboard.html',

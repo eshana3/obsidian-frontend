@@ -9,7 +9,7 @@ const API_BASE = ObsidianStartup.SPRING_API;
 function initAuthPage(type) {
   const token = localStorage.getItem('jwt_token');
   if (token && token !== 'undefined' && token !== 'null') {
-    window.location.href = 'dashboard.html';
+    window.location.href = 'chatbot.html';
     return;
   }
   if (type === 'login')    initLoginPage();
@@ -267,7 +267,7 @@ async function handleLogin(e) {
         { ms: Date.now() - t0 });
 
       ObsidianStartup.startKeepAlive();
-      setTimeout(() => { window.location.href = 'dashboard.html'; }, 600);
+      setTimeout(() => { window.location.href = 'chatbot.html'; }, 600);
 
     } else {
       const errMsg = data.message || data.error || 'Invalid email or password.';

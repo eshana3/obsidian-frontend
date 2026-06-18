@@ -9,6 +9,15 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js" defer></script>
   <link rel="stylesheet" href="css/chatbot.css"/>
+  <script>
+    // Auth guard — must run before body content renders.
+    (function () {
+      var t = localStorage.getItem('jwt_token');
+      if (!t || t === 'undefined' || t === 'null' || t.length < 10) {
+        window.location.replace('login.html');
+      }
+    })();
+  </script>
 </head>
 <body>
 

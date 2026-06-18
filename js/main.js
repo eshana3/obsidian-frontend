@@ -153,6 +153,6 @@ window.addEventListener('DOMContentLoaded', () => {
   const token = localStorage.getItem('jwt_token');
   if (token) {
     const navActions = document.querySelector('.nav-actions');
-    if (navActions) navActions.innerHTML = '<a href="dashboard.html" class="btn btn-primary">Go to Dashboard →</a>';
+    if (navActions) navActions.innerHTML = '<a href="chatbot.html" class="btn btn-primary">Go to Chat →</a>';
   }
 });

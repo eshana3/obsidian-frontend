@@ -3,6 +3,20 @@
 <head>
 <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>Obsidian — Intelligent Research Assistant</title>
+<script>
+  // Runs synchronously before any body content is painted — no flash.
+  // Authenticated  → chat interface
+  // Unauthenticated → login page
+  // Landing page is preserved at /home for direct access.
+  (function () {
+    var t = localStorage.getItem('jwt_token');
+    if (t && t !== 'undefined' && t !== 'null' && t.length > 10) {
+      window.location.replace('chatbot.html');
+    } else {
+      window.location.replace('login.html');
+    }
+  })();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="css/style.css"/>
@@ -144,14 +158,4 @@
 </footer>
 <script src="config.js"></script>
 <script src="js/main.js"></script>
-<script>
-  // Redirect authenticated users straight to the dashboard.
-  // Unauthenticated visitors stay on this landing page.
-  (function () {
-    var t = localStorage.getItem('jwt_token');
-    if (t && t !== 'undefined' && t !== 'null' && t.length > 10) {
-      window.location.replace('dashboard.html');
-    }
-  })();
-</script>
 </body></html>
