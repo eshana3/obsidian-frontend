@@ -80,11 +80,16 @@ app.get('/api/health', (_req, res) => {
 });
 
 // ── Spring Boot proxy ─────────────────────────────────────────────────────────
-// Routes /api/spring/* → https://obsidian-backend-n8zo.onrender.com/api/*
-// Bypasses CORS: the browser talks to localhost:3001 (which allows it),
-// and this server calls Spring Boot server-to-server (no CORS headers needed).
+// Routes /api/spring/* → ${SPRING_BASE_URL}/api/*
+// Bypasses CORS: the browser talks to this server (which allows it),
+// and this server calls Spring Boot server-to-server (no CORS restriction).
 const https = require('https');
-const SPRING_HOST = 'obsidian-backend-n8zo.onrender.com';
+
+// Read from env var so no code change is needed if the Render service URL changes.
+// Falls back to the known Render URL for local dev without an .env file.
+const _springBase = (process.env.SPRING_BASE_URL || 'https://obsidian-backend-n8zo.onrender.com').replace(/\/$/, '');
+let SPRING_HOST = 'obsidian-backend-n8zo.onrender.com';
+try { SPRING_HOST = new URL(_springBase).hostname; } catch (_) {}
 
 app.use('/api/spring', (req, res) => {
   const targetPath = '/api' + (req.path === '/' ? '' : req.path);
