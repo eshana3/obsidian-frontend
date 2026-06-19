@@ -160,13 +160,18 @@ router.post('/', chatRules, handleValidationErrors, async (req, res) => {
   let sources = [];
   let isRAG = false;
 
-  if (docIds.length > 0 || db.prepare('SELECT COUNT(*) as c FROM documents WHERE user_id = ? AND status = ?').get(userId, 'ready')?.c > 0) {
+  const userDocCount = db.prepare('SELECT COUNT(*) as c FROM documents WHERE user_id = ? AND status = ?').get(userId, 'ready')?.c ?? 0;
+
+  if (docIds.length > 0 || userDocCount > 0) {
     try {
       const rag = await buildRAGContext(db, message, userId, docIds);
       if (rag.isRAG) {
         systemPrompt += rag.contextSystemAddition;
         sources = rag.sources;
         isRAG = true;
+      } else if (userDocCount > 0) {
+        // User has documents but none matched the query — tell the LLM so it can say so
+        systemPrompt += `\n\nNote for this turn: The user has ${userDocCount} uploaded document(s), but no relevant excerpts were found for their current query. Answer from general knowledge but mention that the topic was not found in their documents if it seems relevant.`;
       }
     } catch (err) {
       logger.warn('RAG failed, falling back to plain LLM', { error: err.message });

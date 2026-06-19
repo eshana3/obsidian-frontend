@@ -41,6 +41,16 @@ services:
       - key: OLLAMA_EMBED_MODEL
         value: nomic-embed-text
 
+      # ── Embeddings (for semantic RAG — optional) ──────────────────────────────
+      # BM25 keyword search works WITHOUT any embedding API — RAG is always active.
+      # For higher-quality semantic retrieval, set OPENAI_API_KEY below.
+      # The same key is used for both chat (if GROQ_API_KEY is unset) and embeddings.
+      #   Model: text-embedding-3-small (~$0.02 / 1M tokens — very cheap)
+      - key: OPENAI_API_KEY
+        sync: false        # set in Render dashboard — do NOT commit your key
+      - key: OPENAI_EMBED_MODEL
+        value: text-embedding-3-small
+
       # Logging
       - key: LOG_LEVEL
         value: info

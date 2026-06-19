@@ -56,8 +56,9 @@ async function buildRAGContext(db, message, userId, docIds = []) {
     return { contextSystemAddition: '', sources: [], isRAG: false };
   }
 
-  // Filter to chunks with a meaningful similarity score
-  const relevant = chunks.filter(c => c.score > 0.3);
+  // Accept all chunks returned by searchSimilarChunks (they already have BM25 > 0)
+  // but drop the very lowest tail (< 5% of top score) to avoid fringe noise.
+  const relevant = chunks.filter(c => c.score > 0.05);
   if (relevant.length === 0) {
     return { contextSystemAddition: '', sources: [], isRAG: false };
   }
@@ -70,22 +71,25 @@ async function buildRAGContext(db, message, userId, docIds = []) {
   const cmdAddition = commandSystemAddition(command);
 
   const contextSystemAddition = `
-You have access to the following excerpts from the user's uploaded research documents.
-Use them as the primary source for your answer. Cite sources by referencing the excerpt number and document name.
+
+IMPORTANT INSTRUCTION: You MUST answer ONLY using the document excerpts provided below. Do NOT use any outside knowledge. If the answer cannot be found in these excerpts, respond with exactly: "I could not find that information in the uploaded documents."
 ${cmdAddition}
 
-=== DOCUMENT EXCERPTS ===
+=== DOCUMENT EXCERPTS (from user's uploaded files) ===
 ${contextBlocks}
 === END EXCERPTS ===
 
-After your answer, include a "**Sources:**" section listing each document + page number cited.`;
+Rules:
+- Ground every claim in the excerpts above. Cite using the excerpt number, e.g. [Excerpt 2].
+- After your answer include a "**Sources:**" section listing: document name, page number, and relevance score (${relevant.map(c => `${c.original_name} p.${c.page_number ?? '?'} — ${Math.round(c.score * 100)}%`).join(', ')}).
+- If the excerpts do not contain enough information to answer, say so clearly.`;
 
   const sources = relevant.map(c => ({
     docName:  c.original_name,
     docId:    c.doc_id,
     page:     c.page_number ?? null,
     score:    Math.round(c.score * 100),
-    snippet:  c.chunk_text.slice(0, 180) + (c.chunk_text.length > 180 ? '…' : '')
+    text:     c.chunk_text.slice(0, 200) + (c.chunk_text.length > 200 ? '…' : '')
   }));
 
   logger.info('RAG context built', {

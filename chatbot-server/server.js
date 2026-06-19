@@ -86,9 +86,63 @@ app.use(express.static(STATIC_ROOT, { index: false })); // index:false — we ha
 // ── Static — serve uploaded PDFs (for optional preview) ───────────────────────
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// ── Quick health endpoint (lets the frontend confirm this server is up) ────────
+// ── Health endpoints ───────────────────────────────────────────────────────────
+
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ready', service: 'obsidian-chatbot', version: '2.0.0' });
+});
+
+// Database health — verifies SQLite is up and returns table row counts
+app.get('/api/health/database', (_req, res) => {
+  try {
+    const { db } = require('./database/db');
+    const docs  = db.prepare('SELECT COUNT(*) AS c FROM documents').get()?.c ?? 0;
+    const chunks = db.prepare('SELECT COUNT(*) AS c FROM chunks').get()?.c ?? 0;
+    const chats  = db.prepare('SELECT COUNT(*) AS c FROM chats').get()?.c ?? 0;
+    const withEmb = db.prepare('SELECT COUNT(*) AS c FROM chunks WHERE embedding IS NOT NULL').get()?.c ?? 0;
+    res.json({ status: 'ready', documents: docs, chunks, chatsStored: chats, chunksWithEmbeddings: withEmb });
+  } catch (err) {
+    res.status(500).json({ status: 'error', error: err.message });
+  }
+});
+
+// LLM health — check which provider is configured and reachable
+app.get('/api/health/llm', async (_req, res) => {
+  try {
+    const { checkOllamaHealth, PROVIDER } = require('./services/llm');
+    const h = await checkOllamaHealth();
+    res.json({ status: h.online ? 'ready' : 'offline', provider: PROVIDER, model: h.currentModel, modelAvailable: h.modelAvailable });
+  } catch (err) {
+    res.status(500).json({ status: 'error', error: err.message });
+  }
+});
+
+// Retrieval health — checks embedding provider + BM25 fallback availability
+app.get('/api/health/retrieval', (_req, res) => {
+  const openaiKey   = !!process.env.OPENAI_API_KEY;
+  const ollamaUrl   = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
+  const embedModel  = process.env.OLLAMA_EMBED_MODEL || 'nomic-embed-text';
+  res.json({
+    status:         'ready',
+    bm25:           'always-available',
+    semanticSearch: openaiKey ? 'openai' : 'ollama-local',
+    embeddingModel: openaiKey ? (process.env.OPENAI_EMBED_MODEL || 'text-embedding-3-small') : embedModel,
+    ollamaUrl:      openaiKey ? null : ollamaUrl,
+    note:           openaiKey
+      ? 'Semantic embeddings via OpenAI + BM25 keyword search'
+      : 'BM25 keyword search active. Semantic search requires OPENAI_API_KEY or local Ollama.',
+  });
+});
+
+// Chat health — alias to the chat router's own health check
+app.get('/api/health/chat', async (_req, res) => {
+  try {
+    const { checkOllamaHealth, PROVIDER } = require('./services/llm');
+    const h = await checkOllamaHealth();
+    res.json({ status: 'ready', chatbot: 'online', provider: h.provider || PROVIDER, model: h.currentModel });
+  } catch (err) {
+    res.status(500).json({ status: 'error', chatbot: 'online', error: err.message });
+  }
 });
 
 // ── Spring Boot proxy ─────────────────────────────────────────────────────────
@@ -228,10 +282,20 @@ app.use((err, _req, res, _next) => {
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
+  const provider = process.env.GROQ_API_KEY ? 'groq'
+    : process.env.OPENAI_API_KEY           ? 'openai'
+    :                                         'ollama';
+  const model = provider === 'groq'   ? (process.env.GROQ_MODEL   || 'llama3-8b-8192')
+              : provider === 'openai' ? (process.env.OPENAI_MODEL  || 'gpt-3.5-turbo')
+              :                          (process.env.OLLAMA_MODEL  || 'llama3.2');
+  const embeds = process.env.OPENAI_API_KEY
+    ? `openai/${process.env.OPENAI_EMBED_MODEL || 'text-embedding-3-small'}`
+    : `ollama/${process.env.OLLAMA_EMBED_MODEL || 'nomic-embed-text'} + BM25 fallback`;
+
   logger.info('═══════════════════════════════════════════');
   logger.info(` Obsidian Research Server  •  port ${PORT} `);
-  logger.info(`  Ollama:      ${process.env.OLLAMA_BASE_URL  || 'http://localhost:11434'}`);
-  logger.info(`  Chat model:  ${process.env.OLLAMA_MODEL     || 'llama3.2'}`);
-  logger.info(`  Embed model: ${process.env.OLLAMA_EMBED_MODEL || 'nomic-embed-text'}`);
+  logger.info(`  LLM provider:  ${provider} / ${model}`);
+  logger.info(`  Embeddings:    ${embeds}`);
+  logger.info(`  RAG retrieval: BM25 keyword (always) + semantic (when embeddings stored)`);
   logger.info('═══════════════════════════════════════════');
 });
