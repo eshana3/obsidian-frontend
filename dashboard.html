@@ -17,10 +17,10 @@
   <div class="sidebar-section-label">Workspace</div>
   <nav class="sidebar-nav">
     <a class="nav-item active" onclick="showPanel('dashboard')"><span class="nav-icon">🏠</span> Dashboard</a>
-    <a class="nav-item" onclick="showPanel('chat')"><span class="nav-icon">💬</span> AI Chat <span class="nav-badge">3</span></a>
-    <a class="nav-item" href="chatbot.html"><span class="nav-icon">🤖</span> Local AI Chat <span class="nav-badge" style="background:var(--accent-sage);color:#3a6b4a;">NEW</span></a>
+    <a class="nav-item" onclick="showPanel('chat')"><span class="nav-icon">💬</span> Quick Chat</a>
+    <a class="nav-item" href="chatbot.html"><span class="nav-icon">🤖</span> AI Research Chat</a>
     <a class="nav-item" onclick="showPanel('documents')"><span class="nav-icon">📄</span> My Documents</a>
-    <a class="nav-item" href="documents.html"><span class="nav-icon">🔬</span> Processing Engine <span class="nav-badge" style="background:rgba(155,142,196,0.2);color:#7c5ec4;">NEW</span></a>
+    <a class="nav-item" href="documents.html"><span class="nav-icon">🔬</span> Document Upload</a>
     <a class="nav-item" onclick="showPanel('history')"><span class="nav-icon">🕐</span> Chat History</a>
     <a class="nav-item" onclick="showPanel('summaries')"><span class="nav-icon">📝</span> Saved Summaries</a>
   </nav>
@@ -57,7 +57,7 @@
   <div class="dash-content" id="panel-dashboard">
     <div class="welcome-banner">
       <div class="welcome-text"><h2>Welcome back, <span id="welcomeName">Eshana</span> 👋</h2><p>You have 3 unread AI responses and 2 documents pending review.</p></div>
-      <button class="welcome-btn" onclick="showPanel('chat')">💬 Start AI Chat</button>
+      <button class="welcome-btn" onclick="showPanel('chat')">💬 Quick Chat</button>
     </div>
     <div class="stats-grid">
       <div class="stat-card"><div class="stat-card-header"><div class="stat-card-icon purple">📄</div><span class="stat-card-change up">+2</span></div><div class="stat-card-value">8</div><div class="stat-card-label">Documents Uploaded</div></div>
