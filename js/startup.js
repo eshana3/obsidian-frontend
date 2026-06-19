@@ -26,7 +26,6 @@ const ObsidianStartup = (() => {
   })();
 
   const SPRING_API     = CHATBOT_API + '/spring';           // proxy prefix → Render Spring Boot
-  const SPRING_DIRECT  = 'https://obsidian-backend-n8zo.onrender.com/api'; // for diagnostics only
   const HEALTH_URL     = CHATBOT_API + '/health';           // chatbot server health (fast, no CORS)
   const HEALTH_SPRING  = SPRING_API  + '/health';           // Spring Boot via proxy
   const HEALTH_CHATBOT = CHATBOT_API + '/chat/health';      // Ollama/AI health
@@ -289,7 +288,6 @@ const ObsidianStartup = (() => {
     isColdStart,
     getDiagnostics,
     SPRING_API,
-    SPRING_DIRECT,
     CHATBOT_API,
     HEALTH_URL,
     HEALTH_SPRING,

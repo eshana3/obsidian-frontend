@@ -194,15 +194,26 @@ app.use('/api/spring', (req, res) => {
     res.status(status);
 
     // Forward all upstream headers except hop-by-hop ones.
-    // Critical for OAuth: Spring Boot returns 302 with Location → GitHub.
     const HOP_BY_HOP = new Set(['transfer-encoding', 'connection', 'keep-alive', 'proxy-connection', 'upgrade', 'te', 'trailer']);
     for (const [key, value] of Object.entries(proxyRes.headers)) {
       if (!HOP_BY_HOP.has(key.toLowerCase())) res.setHeader(key, value);
     }
 
-    // For redirects just end the response — no body needed.
+    // For redirects: rewrite any Location header that points to the raw Spring Boot URL
+    // so the browser follows through our proxy instead of hitting Spring Boot directly (→ 403).
     if (status >= 300 && status < 400) {
-      logger.info(`← PROXY ${status} ${targetPath} → ${proxyRes.headers.location || '?'}`);
+      let location = proxyRes.headers.location || '';
+      if (location) {
+        // Absolute Spring Boot URL → rewrite to our /api/spring proxy path
+        const springApiPrefix = _springBase + '/api';
+        if (location.startsWith(springApiPrefix)) {
+          location = '/api/spring' + location.slice(springApiPrefix.length);
+        } else if (location.startsWith(_springBase)) {
+          location = '/api/spring' + location.slice(_springBase.length);
+        }
+        res.setHeader('location', location);
+      }
+      logger.info(`← PROXY ${status} ${targetPath} → ${location || '?'}`);
       return res.end();
     }
 
