@@ -274,6 +274,55 @@ const ObsidianStartup = (() => {
     return results;
   }
 
+  /* ── JWT helpers ────────────────────────────────────────────────── */
+  function isJwtExpired(token) {
+    if (!token || token === 'undefined' || token === 'null') return true;
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return Date.now() >= payload.exp * 1000;
+    } catch (_) { return true; }
+  }
+
+  async function tryRefreshToken() {
+    const refreshToken = localStorage.getItem('refresh_token')
+                      || sessionStorage.getItem('refresh_token');
+    if (!refreshToken) return false;
+    try {
+      const res = await fetchWithTimeout(
+        SPRING_API + '/auth/refresh',
+        {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ refreshToken }),
+        },
+        15000
+      );
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const newToken = data.access_token || data.token;
+        if (newToken) {
+          localStorage.setItem('jwt_token', newToken);
+          if (data.refresh_token) {
+            if (localStorage.getItem('refresh_token')) {
+              localStorage.setItem('refresh_token', data.refresh_token);
+            } else {
+              sessionStorage.setItem('refresh_token', data.refresh_token);
+            }
+          }
+          log('info', 'Token refreshed successfully');
+          return true;
+        }
+      } else {
+        localStorage.removeItem('refresh_token');
+        sessionStorage.removeItem('refresh_token');
+        log('warn', 'Token refresh failed, clearing session');
+      }
+    } catch (err) {
+      log('warn', 'Token refresh network error', err.message);
+    }
+    return false;
+  }
+
   /* ── Public API ─────────────────────────────────────────────────── */
   return {
     log,
@@ -287,6 +336,8 @@ const ObsidianStartup = (() => {
     enqueue,
     isColdStart,
     getDiagnostics,
+    isJwtExpired,
+    tryRefreshToken,
     SPRING_API,
     CHATBOT_API,
     HEALTH_URL,

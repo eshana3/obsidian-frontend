@@ -145,6 +145,15 @@ app.get('/api/health/chat', async (_req, res) => {
   }
 });
 
+// ── GitHub OAuth redirect ─────────────────────────────────────────────────────
+// /auth/oauth2/github → Spring Boot OAuth2 authorization endpoint.
+// The browser follows to GitHub, GitHub redirects back to Spring Boot,
+// Spring Boot redirects to oauth-callback.html with tokens in URL params.
+const _springBaseForOAuth = (process.env.SPRING_BASE_URL || 'https://obsidian-backend-n8zo.onrender.com').replace(/\/$/, '');
+app.get('/auth/oauth2/github', (_req, res) => {
+  res.redirect(302, `${_springBaseForOAuth}/oauth2/authorization/github`);
+});
+
 // ── Spring Boot proxy ─────────────────────────────────────────────────────────
 // Routes /api/spring/* → ${SPRING_BASE_URL}/api/*
 // Bypasses CORS: the browser talks to this server (which allows it),

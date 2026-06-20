@@ -250,3 +250,77 @@ body {
 .wakeup-step.failed .step-label { color: #C05050; }
 
 @media(max-width:480px) { .auth-card { padding: 30px 22px; } .form-row { grid-template-columns: 1fr; } .oauth-row { flex-direction: column; } }
+
+/* ── GitHub OAuth button ─────────────────────────────────────── */
+.btn-github {
+  background: #24292f !important;
+  border-color: #24292f !important;
+  color: #fff !important;
+  font-weight: 600;
+}
+.btn-github:hover {
+  background: #1b2028 !important;
+  border-color: #1b2028 !important;
+  color: #fff !important;
+}
+
+/* ── OTP step wrapper ────────────────────────────────────────── */
+.auth-step { animation: fadeIn .2s ease both; }
+
+/* ── OTP 6-digit grid ───────────────────────────────────────── */
+.otp-input-group {
+  display: flex; gap: 8px; justify-content: flex-start; margin: 8px 0 4px;
+}
+.otp-digit {
+  width: 46px; height: 56px;
+  text-align: center; font-size: 1.4rem; font-weight: 700;
+  font-family: var(--font-main); letter-spacing: 0;
+  border: 1.5px solid rgba(210,195,180,0.5);
+  border-radius: 12px; background: rgba(255,255,255,0.72);
+  color: var(--text-primary);
+  transition: var(--transition);
+  outline: none; caret-color: transparent;
+}
+.otp-digit:focus {
+  border-color: #C4956A;
+  box-shadow: 0 0 0 3px rgba(196,149,106,0.18);
+  background: #fff;
+}
+.otp-digit.filled {
+  border-color: #9B8EC4;
+  background: rgba(155,142,196,0.06);
+}
+@media(max-width:480px) {
+  .otp-digit { width: 40px; height: 50px; font-size: 1.2rem; }
+  .otp-input-group { gap: 6px; }
+}
+
+/* ── OTP hint (email confirmation line) ─────────────────────── */
+.otp-hint {
+  font-size: .88rem; color: var(--text-secondary);
+  margin-bottom: 14px; line-height: 1.45;
+}
+.otp-hint strong { color: var(--text-primary); }
+
+/* ── Resend row ─────────────────────────────────────────────── */
+.resend-row {
+  display: flex; align-items: center; gap: 12px;
+  margin: 10px 0 16px; font-size: .82rem;
+}
+.resend-timer { color: var(--text-muted); flex: 1; }
+.btn-resend {
+  background: none; border: none; padding: 0;
+  font-size: .82rem; font-weight: 600;
+  color: #C4956A; cursor: pointer; transition: var(--transition);
+}
+.btn-resend:disabled { color: var(--text-muted); cursor: default; }
+.btn-resend:not(:disabled):hover { color: #A07545; text-decoration: underline; }
+
+/* ── Back link ──────────────────────────────────────────────── */
+.btn-back {
+  display: block; width: 100%; background: none; border: none;
+  margin-top: 10px; padding: 6px 0;
+  font-size: .83rem; font-weight: 500; color: var(--text-secondary);
+  cursor: pointer; text-align: center; transition: var(--transition);
+}
+.btn-back:hover { color: var(--text-primary); }

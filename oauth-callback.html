@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Signing in… — Obsidian</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet"/>
+<style>
+  body { font-family: Inter, system-ui, sans-serif; background: #F8F6F2;
+         display: flex; align-items: center; justify-content: center;
+         min-height: 100vh; margin: 0; color: #2B2B2B; }
+  .card { text-align: center; padding: 48px 40px;
+          background: rgba(255,255,255,0.84); border-radius: 24px;
+          box-shadow: 0 20px 60px rgba(100,80,60,0.14);
+          border: 1px solid rgba(210,195,180,0.35); max-width: 360px; }
+  .logo { font-size: 24px; font-weight: 800; margin-bottom: 24px;
+          background: linear-gradient(135deg,#C4956A,#9B8EC4);
+          -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .spinner { width: 40px; height: 40px; border: 3px solid rgba(196,149,106,0.2);
+             border-top-color: #C4956A; border-radius: 50%;
+             animation: spin .7s linear infinite; margin: 0 auto 20px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  p { color: #6B6B6B; font-size: .95rem; margin: 0; }
+  .error { color: #C05050; margin-top: 16px; font-size: .9rem; }
+  a { color: #C4956A; font-weight: 600; text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">◆ Obsidian</div>
+  <div class="spinner" id="spinner"></div>
+  <p id="msg">Completing sign-in…</p>
+  <p class="error" id="errMsg" style="display:none">
+    Something went wrong. <a href="login.html">Back to login →</a>
+  </p>
+</div>
+<script>
+(function () {
+  const params       = new URLSearchParams(window.location.search);
+  const token        = params.get('token');
+  const refreshToken = params.get('refresh');
+  const name         = params.get('name')  || '';
+  const email        = params.get('email') || '';
+
+  if (!token) {
+    document.getElementById('spinner').style.display = 'none';
+    document.getElementById('msg').textContent = '';
+    document.getElementById('errMsg').style.display = '';
+    return;
+  }
+
+  // Store session (GitHub OAuth → always remember me)
+  localStorage.setItem('jwt_token',     token);
+  localStorage.setItem('user_name',     name);
+  localStorage.setItem('user_email',    email);
+  localStorage.setItem('cb_user_id',    email);
+  localStorage.setItem('cb_user_name',  name);
+  localStorage.setItem('cb_user_email', email);
+  if (refreshToken) {
+    localStorage.setItem('refresh_token', refreshToken);
+  }
+
+  document.getElementById('msg').textContent = 'Welcome' + (name ? ', ' + name : '') + '! Redirecting…';
+
+  // Clean URL then navigate
+  window.history.replaceState({}, '', window.location.pathname);
+  setTimeout(() => { window.location.href = 'chatbot.html'; }, 800);
+})();
+</script>
+</body>
+</html>
