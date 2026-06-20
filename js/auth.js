@@ -59,6 +59,7 @@ async function initAuthPage(type) {
    LOGIN PAGE
 ════════════════════════════════════════════════════════════════ */
 function initLoginPage() {
+  wireGitHubButton('githubBtn');
   document.getElementById('sendOtpBtn')
     ?.addEventListener('click', handleSendOtp);
   document.getElementById('loginForm')
@@ -295,6 +296,7 @@ function showLoginStep2(email) {
    REGISTER PAGE
 ════════════════════════════════════════════════════════════════ */
 function initRegisterPage() {
+  wireGitHubButton('githubBtn');
   document.getElementById('regSendOtpBtn')
     ?.addEventListener('click', handleRegSendOtp);
   document.getElementById('registerForm')
@@ -553,6 +555,29 @@ function startResendTimer(timerId, btnId, isReg) {
     if (_loginResendTimer) clearInterval(_loginResendTimer);
     _loginResendTimer = interval;
   }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   GITHUB BUTTON WIRING
+════════════════════════════════════════════════════════════════ */
+// Build the GitHub OAuth URL dynamically:
+//   • Production  → direct Spring Boot endpoint (no extra proxy hop)
+//   • Local dev   → /auth/oauth2/github proxy route on chatbot-server
+const GITHUB_OAUTH_URL = (() => {
+  const h = window.location.hostname;
+  if (h === 'localhost' || h === '127.0.0.1') {
+    return '/auth/oauth2/github';
+  }
+  // Production: derive from SPRING_BASE_URL if exposed, else use hardcoded backend host
+  const springOrigin = ObsidianStartup.SPRING_API
+    .replace('/api/spring', '')
+    .replace('/api', '');
+  return springOrigin + '/oauth2/authorization/github';
+})();
+
+function wireGitHubButton(id) {
+  const btn = document.getElementById(id);
+  if (btn) btn.href = GITHUB_OAUTH_URL;
 }
 
 /* ════════════════════════════════════════════════════════════════
