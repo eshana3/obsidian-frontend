@@ -9,6 +9,9 @@ services:
     buildCommand: npm run build        # installs chatbot-server/node_modules
     startCommand: npm start            # node chatbot-server/server.js
 
+    # Auto-deploy on every push to the connected GitHub branch
+    autoDeploy: true
+
     # Health check — Render uses this to confirm the app is up
     healthCheckPath: /api/health
 
