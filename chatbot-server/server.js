@@ -81,7 +81,18 @@ app.use((req, res, next) => {
 // ── Static files — serve the whole frontend from repo root ────────────────────
 // In production (Render): __dirname = /opt/render/project/src/chatbot-server
 // STATIC_ROOT = /opt/render/project/src/   → serves index.html, login.html, css/, js/ …
-app.use(express.static(STATIC_ROOT, { index: false })); // index:false — we handle / ourselves
+// HTML files get no-cache so a hard refresh always fetches the newest version.
+// CSS/JS are served with ETags (browser revalidates but no stale content).
+app.use(express.static(STATIC_ROOT, {
+  index: false,
+  setHeaders(res, filePath) {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma',        'no-cache');
+      res.setHeader('Expires',       '0');
+    }
+  },
+}));
 
 // ── Static — serve uploaded PDFs (for optional preview) ───────────────────────
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -274,7 +285,12 @@ const PAGE_MAP = {
   '/documents':   'documents.html',
 };
 Object.entries(PAGE_MAP).forEach(([route, file]) => {
-  app.get(route, (_req, res) => res.sendFile(path.join(STATIC_ROOT, file)));
+  app.get(route, (_req, res) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma',        'no-cache');
+    res.setHeader('Expires',       '0');
+    res.sendFile(path.join(STATIC_ROOT, file));
+  });
 });
 
 // ── SPA catch-all ─────────────────────────────────────────────────────────────
@@ -285,6 +301,9 @@ app.get('*', (req, res) => {
   if (req.path.startsWith('/api/')) {
     return res.status(404).json({ success: false, error: `${req.path} not found.` });
   }
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma',        'no-cache');
+  res.setHeader('Expires',       '0');
   // Check if a matching .html file exists (e.g. /login.html → serve it directly)
   const htmlFile = path.join(STATIC_ROOT, req.path.endsWith('.html') ? req.path : req.path + '.html');
   if (fs.existsSync(htmlFile)) {
