@@ -24,8 +24,17 @@ const OLLAMA_MODEL    = process.env.OLLAMA_MODEL    || 'llama3.2';
 const LLM_TIMEOUT  = parseInt(process.env.OLLAMA_TIMEOUT, 10) || 60_000;
 const MAX_RETRIES  = parseInt(process.env.MAX_RETRIES,    10) || 2;
 
-// Resolve provider once at startup so every request uses the same path
+// Resolve provider once at startup
 const PROVIDER = GROQ_API_KEY ? 'groq' : OPENAI_API_KEY ? 'openai' : 'ollama';
+
+// ── Startup warning if no cloud API key set ───────────────────────────────────
+if (!GROQ_API_KEY && !OPENAI_API_KEY) {
+  logger.warn('═══════════════════════════════════════════════════════════════');
+  logger.warn('  WARNING: No GROQ_API_KEY or OPENAI_API_KEY found in environment.');
+  logger.warn('  Chat will fail unless Ollama is running at ' + OLLAMA_BASE_URL);
+  logger.warn('  FIX: Get a free key at console.groq.com and set GROQ_API_KEY');
+  logger.warn('═══════════════════════════════════════════════════════════════');
+}
 
 logger.info(`LLM provider: ${PROVIDER}`, {
   model: PROVIDER === 'groq' ? GROQ_MODEL : PROVIDER === 'openai' ? OPENAI_MODEL : OLLAMA_MODEL,
@@ -97,7 +106,11 @@ async function callOllama(messages, systemPrompt) {
 
 function classifyError(err) {
   const status = err.response?.status;
-  if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') return 'provider_down';
+  if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') {
+    // Special case: if provider is ollama and no API key set, give a clear message
+    if (PROVIDER === 'ollama') return 'no_api_key';
+    return 'provider_down';
+  }
   if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) return 'timeout';
   if (status === 401 || status === 403) return 'auth_failed';
   if (status === 404) return 'model_not_found';
@@ -108,11 +121,6 @@ function classifyError(err) {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-/**
- * Check whether the configured LLM provider is reachable.
- * For cloud providers (Groq, OpenAI): reports online when the API key is set.
- * For Ollama: pings localhost to check if the daemon is running.
- */
 async function checkOllamaHealth() {
   if (PROVIDER === 'groq') {
     return {
@@ -141,20 +149,30 @@ async function checkOllamaHealth() {
     const modelAvailable = models.some(m => m.name === OLLAMA_MODEL || m.name.startsWith(`${OLLAMA_MODEL}:`));
     return { online: true, modelAvailable, currentModel: OLLAMA_MODEL, provider: 'ollama', models };
   } catch (err) {
-    logger.warn('Ollama health check failed', { error: err.message });
+    logger.warn('Ollama health check failed — no API key set and Ollama unreachable', { error: err.message });
     return { online: false, modelAvailable: false, currentModel: OLLAMA_MODEL, provider: 'ollama', models: [] };
   }
 }
 
-/**
- * Generate an LLM response for the given conversation context.
- * Tries the configured provider with up to MAX_RETRIES attempts before throwing.
- *
- * @param {Array<{role: string, content: string}>} messages
- * @param {string} [systemPrompt]
- * @returns {Promise<string>}
- */
 async function generateResponse(messages, systemPrompt) {
+  // Guard: if no API key and Ollama clearly won't work on this host, fail fast with helpful message
+  if (PROVIDER === 'ollama') {
+    // Try once and fail fast rather than waiting for timeout
+    try {
+      const content = await callOllama(messages, systemPrompt);
+      return content;
+    } catch (err) {
+      const kind = classifyError(err);
+      if (kind === 'no_api_key' || err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') {
+        const helpErr = new Error('No AI provider configured.');
+        helpErr._kind = 'no_api_key';
+        throw helpErr;
+      }
+      err._kind = kind;
+      throw err;
+    }
+  }
+
   let lastError;
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
@@ -177,7 +195,6 @@ async function generateResponse(messages, systemPrompt) {
         kind, provider: PROVIDER, error: err.message, status: err.response?.status
       });
 
-      // Non-retryable errors
       if (kind === 'auth_failed' || kind === 'model_not_found' || kind === 'bad_request') break;
 
       if (attempt < MAX_RETRIES) {
