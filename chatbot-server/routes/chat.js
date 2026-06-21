@@ -56,6 +56,7 @@ function userMessageForError(err) {
   const model = PROVIDER === 'groq'   ? (process.env.GROQ_MODEL   || 'llama3-8b-8192')
               : PROVIDER === 'openai' ? (process.env.OPENAI_MODEL  || 'gpt-3.5-turbo')
               :                          (process.env.OLLAMA_MODEL  || 'llama3.2');
+  if (k === 'no_api_key')      return 'No AI provider configured. Add a free GROQ_API_KEY: go to console.groq.com, create a key, and add it to your Render environment variables.';
   if (k === 'provider_down')   return PROVIDER === 'ollama'
     ? 'Ollama is not running locally. Start it with: ollama serve'
     : `${providerName} is unreachable. Check your internet connection.`;
