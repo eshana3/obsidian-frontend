@@ -3,16 +3,16 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Signing in… — Obsidian</title>
+<title>Signing in\xe2\x80\xa6 \xe2\x80\x94 Obsidian</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet"/>
 <style>
-  body { font-family: Inter, system-ui, sans-serif; background: #F8F6F2;
+  body { font-family: Inter, system-ui, sans-serif; background: #0F0F0F;
          display: flex; align-items: center; justify-content: center;
-         min-height: 100vh; margin: 0; color: #2B2B2B; }
+         min-height: 100vh; margin: 0; color: #E8E4E0; }
   .card { text-align: center; padding: 48px 40px;
-          background: rgba(255,255,255,0.84); border-radius: 24px;
-          box-shadow: 0 20px 60px rgba(100,80,60,0.14);
-          border: 1px solid rgba(210,195,180,0.35); max-width: 360px; }
+          background: rgba(255,255,255,0.06); border-radius: 24px;
+          box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+          border: 1px solid rgba(255,255,255,0.1); max-width: 360px; }
   .logo { font-size: 24px; font-weight: 800; margin-bottom: 24px;
           background: linear-gradient(135deg,#C4956A,#9B8EC4);
           -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
@@ -20,51 +20,87 @@
              border-top-color: #C4956A; border-radius: 50%;
              animation: spin .7s linear infinite; margin: 0 auto 20px; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  p { color: #6B6B6B; font-size: .95rem; margin: 0; }
-  .error { color: #C05050; margin-top: 16px; font-size: .9rem; }
+  p { color: #9B9B9B; font-size: .95rem; margin: 0; }
+  .error { color: #E05050; margin-top: 16px; font-size: .9rem; }
   a { color: #C4956A; font-weight: 600; text-decoration: none; }
+  .success-check { font-size: 48px; margin-bottom: 16px; }
 </style>
 </head>
 <body>
 <div class="card">
-  <div class="logo">◆ Obsidian</div>
+  <div class="logo">\xe2\x97\x86 Obsidian</div>
   <div class="spinner" id="spinner"></div>
-  <p id="msg">Completing sign-in…</p>
-  <p class="error" id="errMsg" style="display:none">
-    Something went wrong. <a href="login.html">Back to login →</a>
-  </p>
+  <p id="msg">Completing sign-in\xe2\x80\xa6</p>
+  <div class="error" id="errMsg" style="display:none">
+    <p id="errText">Something went wrong.</p>
+    <p style="margin-top:12px"><a href="/login">Back to login \xe2\x86\x92</a></p>
+  </div>
 </div>
 <script>
 (function () {
-  const params       = new URLSearchParams(window.location.search);
-  const token        = params.get('token');
-  const refreshToken = params.get('refresh');
-  const name         = params.get('name')  || '';
-  const email        = params.get('email') || '';
+  var params       = new URLSearchParams(window.location.search);
+  var token        = params.get("token");
+  var refreshToken = params.get("refresh");
+  var name         = params.get("name")  || "";
+  var email        = params.get("email") || "";
+  var error        = params.get("error") || "";
 
-  if (!token) {
-    document.getElementById('spinner').style.display = 'none';
-    document.getElementById('msg').textContent = '';
-    document.getElementById('errMsg').style.display = '';
+  // Handle OAuth failure redirected here
+  if (error) {
+    var msgs = {
+      github_no_email: "Your GitHub account has no public email. Set a public email on GitHub or use email OTP.",
+      oauth_failed:    "GitHub login failed. Please try again."
+    };
+    document.getElementById("spinner").style.display = "none";
+    document.getElementById("msg").textContent = "";
+    document.getElementById("errText").textContent = msgs[error] || "Login failed: " + error;
+    document.getElementById("errMsg").style.display = "";
     return;
   }
 
-  // Store session (GitHub OAuth → always remember me)
-  localStorage.setItem('jwt_token',     token);
-  localStorage.setItem('user_name',     name);
-  localStorage.setItem('user_email',    email);
-  localStorage.setItem('cb_user_id',    email);
-  localStorage.setItem('cb_user_name',  name);
-  localStorage.setItem('cb_user_email', email);
-  if (refreshToken) {
-    localStorage.setItem('refresh_token', refreshToken);
+  if (!token) {
+    document.getElementById("spinner").style.display = "none";
+    document.getElementById("msg").textContent = "";
+    document.getElementById("errText").textContent = "No authentication token received.";
+    document.getElementById("errMsg").style.display = "";
+    return;
   }
 
-  document.getElementById('msg').textContent = 'Welcome' + (name ? ', ' + name : '') + '! Redirecting…';
+  // Store ALL session keys before ANY redirect — prevents auth guard race condition
+  try {
+    localStorage.setItem("jwt_token",     token);
+    localStorage.setItem("user_name",     name);
+    localStorage.setItem("user_email",    email);
+    localStorage.setItem("cb_user_id",    email);
+    localStorage.setItem("cb_user_name",  name);
+    localStorage.setItem("cb_user_email", email);
+    if (refreshToken) {
+      localStorage.setItem("refresh_token", refreshToken);
+    }
+  } catch (e) {
+    // localStorage blocked (private browsing?) — still try redirect
+    console.warn("localStorage write failed:", e);
+  }
 
-  // Clean URL then navigate
-  window.history.replaceState({}, '', window.location.pathname);
-  setTimeout(() => { window.location.href = 'chatbot.html'; }, 800);
+  // Verify token was stored correctly
+  var stored = localStorage.getItem("jwt_token");
+  if (!stored || stored.length < 10) {
+    document.getElementById("spinner").style.display = "none";
+    document.getElementById("msg").textContent = "";
+    document.getElementById("errText").textContent = "Failed to save session. Please enable cookies/localStorage and try again.";
+    document.getElementById("errMsg").style.display = "";
+    return;
+  }
+
+  document.getElementById("msg").textContent = "Welcome" + (name ? ", " + name : "") + "! Redirecting\xe2\x80\xa6";
+
+  // Clean URL (remove tokens from address bar for security)
+  try { window.history.replaceState({}, "", window.location.pathname); } catch(_) {}
+
+  // Navigate to chatbot — use replace so back button does not return to callback
+  setTimeout(function() {
+    window.location.replace("chatbot.html");
+  }, 600);
 })();
 </script>
 </body>
