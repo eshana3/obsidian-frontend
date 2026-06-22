@@ -78,6 +78,14 @@ app.use((req, res, next) => {
   next();
 });
 
+// ── GitHub OAuth redirect (must be before static middleware) ─────────────────
+// Register this BEFORE express.static so /auth/oauth2/github is never
+// intercepted by the static file handler.
+const _springBaseForOAuthEarly = (process.env.SPRING_BASE_URL || 'https://obsidian-backend-n8zo.onrender.com').replace(/\/$/, '');
+app.get('/auth/oauth2/github', (_req, res) => {
+  res.redirect(302, _springBaseForOAuthEarly + '/oauth2/authorization/github');
+});
+
 // ── Static files — serve the whole frontend from repo root ────────────────────
 // In production (Render): __dirname = /opt/render/project/src/chatbot-server
 // STATIC_ROOT = /opt/render/project/src/   → serves index.html, login.html, css/, js/ …
@@ -154,15 +162,6 @@ app.get('/api/health/chat', async (_req, res) => {
   } catch (err) {
     res.status(500).json({ status: 'error', chatbot: 'online', error: err.message });
   }
-});
-
-// ── GitHub OAuth redirect ─────────────────────────────────────────────────────
-// /auth/oauth2/github → Spring Boot OAuth2 authorization endpoint.
-// The browser follows to GitHub, GitHub redirects back to Spring Boot,
-// Spring Boot redirects to oauth-callback.html with tokens in URL params.
-const _springBaseForOAuth = (process.env.SPRING_BASE_URL || 'https://obsidian-backend-n8zo.onrender.com').replace(/\/$/, '');
-app.get('/auth/oauth2/github', (_req, res) => {
-  res.redirect(302, `${_springBaseForOAuth}/oauth2/authorization/github`);
 });
 
 // ── Spring Boot proxy ─────────────────────────────────────────────────────────
